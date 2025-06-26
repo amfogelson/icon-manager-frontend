@@ -645,8 +645,8 @@ function App() {
             ) : (
               <div className={`text-xl flex items-center justify-center h-full ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Select an item to begin</div>
             )}
-            {/* Export buttons for icons, always visible when an icon is selected */}
-            {activeTab === "icons" && selectedIcon && (
+            {/* Export buttons for icons, only visible when an icon is selected but no group is selected */}
+            {activeTab === "icons" && selectedIcon && !selectedGroup && (
               <div className="flex gap-2 mt-4">
                 <button onClick={exportSvg} className={`px-4 py-2 text-white rounded-lg text-sm ${darkMode ? 'bg-[#2E5583]' : 'bg-green-600'}`}>Export SVG</button>
                 <button onClick={exportPng} className={`px-4 py-2 text-white rounded-lg text-sm ${darkMode ? 'bg-[#2E5583]' : 'bg-green-600'}`}>Export PNG</button>
