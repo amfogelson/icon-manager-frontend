@@ -309,12 +309,21 @@ function App() {
         toast.error("Failed to reset color");
       }
     } else {
-      // For icons, reset specific group
+      // For icons, reset specific group to its original color
       if (!selectedGroup) return;
       
       try {
         setLoading(true);
-        const defaultColor = "#282828"; // Bcore Grey
+        
+        // Determine the original color based on group name
+        let originalColor;
+        if (selectedGroup.toLowerCase().includes("color")) {
+          originalColor = "#00ABF6"; // Blue for Color group
+        } else if (selectedGroup.toLowerCase().includes("grey")) {
+          originalColor = "#282828"; // Grey for Grey group
+        } else {
+          originalColor = "#282828"; // Default grey for other groups
+        }
         
         // Remove the color from groupColors state
         setGroupColors(prev => {
@@ -326,7 +335,7 @@ function App() {
         await axios.post(`${backendUrl}/update_color`, {
           icon_name: selectedIcon + ".svg", // Append .svg extension for icons
           group_id: selectedGroup,
-          color: defaultColor,
+          color: originalColor,
           type: activeTab
         }, {
           headers: { 'Content-Type': 'application/json' }
@@ -334,10 +343,10 @@ function App() {
         
         const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
         setSvgUrl(`${baseUrl}/${selectedIcon}.svg?t=${Date.now()}`); // Append .svg extension
-        setCurrentColor(defaultColor);
-        setLocalPreviewColor(defaultColor);
+        setCurrentColor(originalColor);
+        setLocalPreviewColor(originalColor);
         setLoading(false);
-        toast.success("Color reset to default");
+        toast.success(`Color reset to original (${originalColor})`);
       } catch (error) {
         console.error('Error resetting color:', error);
         setLoading(false);
