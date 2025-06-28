@@ -11,6 +11,8 @@ function App() {
   console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
   const [icons, setIcons] = useState([]);
   const [flags, setFlags] = useState([]);
+  const [folders, setFolders] = useState({});
+  const [currentFolder, setCurrentFolder] = useState(null);
   const [selectedIcon, setSelectedIcon] = useState(null);
   const [groups, setGroups] = useState([]);
   const [svgUrl, setSvgUrl] = useState("");
@@ -29,7 +31,7 @@ function App() {
 //Trigger redeploy
   useEffect(() => {
     axios.get(`${backendUrl}/icons`)
-      .then(res => setIcons(res.data.icons))
+      .then(res => setFolders(res.data.folders))
       .catch(err => console.error(err));
     
     axios.get(`${backendUrl}/flags`)
@@ -116,16 +118,20 @@ function App() {
         setSvgUrl(`${backendUrl}/flags/${filename}`);
       }
     } else {
-      // For icons, use existing logic
+      // For icons, use folder-aware logic
       setSelectedIcon(itemName);
-      const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
-      setSvgUrl(`${baseUrl}/${itemName}.svg`); // Append .svg extension
+      const folderPath = currentFolder || "Root";
+      if (folderPath === "Root") {
+        setSvgUrl(`${backendUrl}/static/${itemName}.svg`);
+      } else {
+        setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${itemName}.svg`);
+      }
       setSelectedGroup(null);
       setGroupColors({}); // Reset group colors for new icon
       
       // Only load groups for icons, not for flags
       if (activeTab === "icons") {
-        axios.get(`${backendUrl}/groups/icon/${itemName}.svg`) // Append .svg extension
+        axios.get(`${backendUrl}/groups/icon/${folderPath}/${itemName}.svg`) // Append .svg extension
           .then(res => setGroups(res.data.groups))
           .catch(err => console.error(err));
       } else {
@@ -171,16 +177,22 @@ function App() {
         [selectedGroup]: colorToApply
       }));
       
+      const folderPath = currentFolder || "Root";
       axios.post(`${backendUrl}/update_color`, {
         icon_name: selectedIcon + ".svg", // Append .svg extension for icons
         group_id: selectedGroup,
         color: colorToApply,
-        type: activeTab
+        type: activeTab,
+        folder: folderPath
       }, {
         headers: { 'Content-Type': 'application/json' }
       }).then(res => {
-        const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
-        setSvgUrl(`${baseUrl}/${selectedIcon}.svg?t=${Date.now()}`); // Append .svg extension
+        // Update SVG URL with folder path
+        if (folderPath === "Root") {
+          setSvgUrl(`${backendUrl}/static/${selectedIcon}.svg?t=${Date.now()}`);
+        } else {
+          setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
+        }
         setLoading(false);
         toast.success("Color updated");
       }).catch(err => {
@@ -189,7 +201,7 @@ function App() {
         toast.error("Failed to update color.");
       });
     }
-  }, [selectedIcon, selectedGroup, activeTab]);
+  }, [selectedIcon, selectedGroup, activeTab, currentFolder]);
 
   const handleColorChange = (color) => {
     const hex = color.hex;
@@ -243,20 +255,27 @@ function App() {
   const exportPng = async () => {
     try {
       // Determine the icon name and type
-      let iconName, type;
+      let iconName, type, folder;
       if (activeTab === "flags" && selectedCountry) {
         iconName = getFlagFilename(selectedCountry, flagType);
         type = "flag";
       } else {
         iconName = selectedIcon + ".svg"; // Append .svg extension for icons
         type = "icon";
+        folder = currentFolder || "Root";
       }
 
       // Call the backend to convert and download PNG
-      const response = await axios.post(`${backendUrl}/export-png`, {
+      const requestData = {
         icon_name: iconName,
         type: type
-      }, {
+      };
+      
+      if (type === "icon") {
+        requestData.folder = folder;
+      }
+      
+      const response = await axios.post(`${backendUrl}/export-png`, requestData, {
         responseType: 'blob'
       });
 
@@ -332,17 +351,23 @@ function App() {
           return newColors;
         });
         
+        const folderPath = currentFolder || "Root";
         await axios.post(`${backendUrl}/update_color`, {
           icon_name: selectedIcon + ".svg", // Append .svg extension for icons
           group_id: selectedGroup,
           color: originalColor,
-          type: activeTab
+          type: activeTab,
+          folder: folderPath
         }, {
           headers: { 'Content-Type': 'application/json' }
         });
         
-        const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
-        setSvgUrl(`${baseUrl}/${selectedIcon}.svg?t=${Date.now()}`); // Append .svg extension
+        // Update SVG URL with folder path
+        if (folderPath === "Root") {
+          setSvgUrl(`${backendUrl}/static/${selectedIcon}.svg?t=${Date.now()}`);
+        } else {
+          setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
+        }
         setCurrentColor(originalColor);
         setLocalPreviewColor(originalColor);
         setLoading(false);
@@ -374,7 +399,7 @@ function App() {
 
   // Filter items based on search term and active tab
   const filteredItems = activeTab === "icons" 
-    ? icons.filter(item => item.toLowerCase().includes(searchTerm.toLowerCase()))
+    ? (currentFolder ? icons.filter(item => item.toLowerCase().includes(searchTerm.toLowerCase())) : [])
     : activeTab === "flags"
       ? getCountryNames().filter(country => country.toLowerCase().includes(searchTerm.toLowerCase()))
       : [];
@@ -390,6 +415,7 @@ function App() {
     setSearchTerm("");
     setFlagType("rectangle");
     setGroupColors({}); // Reset group colors when switching tabs
+    setCurrentFolder(null); // Reset current folder when switching tabs
   };
 
   // Handle flag type change (rectangle/circle)
@@ -407,6 +433,19 @@ function App() {
   const handleFlagColorChange = () => {
     setSelectedGroup("entire_flag"); // Set a special group for flags
     setLocalPreviewColor(currentColor);
+  };
+
+  const loadIconsFromFolder = (folderName) => {
+    setCurrentFolder(folderName);
+    setSelectedIcon(null);
+    setSelectedGroup(null);
+    setSvgUrl("");
+    setGroups([]);
+    setGroupColors({});
+    
+    axios.get(`${backendUrl}/icons/${folderName}`)
+      .then(res => setIcons(res.data.icons))
+      .catch(err => console.error(err));
   };
 
   return (
@@ -482,14 +521,39 @@ function App() {
             </div>
             
             <div className="flex flex-col gap-3 max-h-[360px] overflow-y-auto">
-              {activeTab === "icons" && filteredItems.map(item => (
+              {activeTab === "icons" && !currentFolder && Object.keys(folders).map(folderName => (
                 <button
-                  key={item}
-                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${selectedIcon === item || selectedCountry === item ? 'bg-[#2E5583] text-white font-semibold' : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
-                  onClick={() => loadGroups(item)}>
-                  {item}
+                  key={folderName}
+                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                  onClick={() => loadIconsFromFolder(folderName)}>
+                  📁 {folderName} ({folders[folderName].length} icons)
                 </button>
               ))}
+              {activeTab === "icons" && currentFolder && (
+                <>
+                  <button
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                    onClick={() => {
+                      setCurrentFolder(null);
+                      setIcons([]);
+                      setSelectedIcon(null);
+                      setSelectedGroup(null);
+                      setSvgUrl("");
+                      setGroups([]);
+                      setGroupColors({});
+                    }}>
+                    ← Back to Folders
+                  </button>
+                  {filteredItems.map(item => (
+                    <button
+                      key={item}
+                      className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${selectedIcon === item || selectedCountry === item ? 'bg-[#2E5583] text-white font-semibold' : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                      onClick={() => loadGroups(item)}>
+                      {item}
+                    </button>
+                  ))}
+                </>
+              )}
               {activeTab === "flags" && getCountryNames().map(item => (
                 <button
                   key={item}
@@ -615,12 +679,52 @@ function App() {
                 <ReactSVG
                   src={svgUrl}
                   beforeInjection={(svg) => {
+                    // Remove any existing style, width, and height attributes
                     svg.removeAttribute("style");
                     svg.removeAttribute("width");
                     svg.removeAttribute("height");
+                    
+                    // Get the current viewBox or calculate it
+                    let viewBox = svg.getAttribute("viewBox");
+                    if (!viewBox) {
+                      const bbox = svg.getBBox();
+                      if (bbox.width > 0 && bbox.height > 0) {
+                        viewBox = `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`;
+                        svg.setAttribute("viewBox", viewBox);
+                      }
+                    }
+                    
+                    // Parse viewBox to get dimensions
+                    let svgWidth, svgHeight;
+                    if (viewBox) {
+                      const parts = viewBox.split(' ');
+                      svgWidth = parseFloat(parts[2]);
+                      svgHeight = parseFloat(parts[3]);
+                    } else {
+                      // Fallback to getBBox if no viewBox
+                      const bbox = svg.getBBox();
+                      svgWidth = bbox.width;
+                      svgHeight = bbox.height;
+                    }
+                    
+                    // Calculate the scale to fit the SVG within the container
+                    const containerWidth = 400; // Preview box width
+                    const containerHeight = 450; // Preview box height
+                    const scaleX = containerWidth / svgWidth;
+                    const scaleY = containerHeight / svgHeight;
+                    const scale = Math.min(scaleX, scaleY) * 0.9; // 90% to add some padding
+                    
+                    // Set preserveAspectRatio to maintain aspect ratio and center the content
                     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-                    svg.setAttribute("width", "100%");
-                    svg.setAttribute("height", "100%");
+                    
+                    // Set width and height based on calculated scale
+                    svg.setAttribute("width", `${svgWidth * scale}px`);
+                    svg.setAttribute("height", `${svgHeight * scale}px`);
+                    
+                    // Add CSS to ensure proper centering and no overflow
+                    svg.style.maxWidth = "100%";
+                    svg.style.maxHeight = "100%";
+                    svg.style.overflow = "visible";
                     
                     if (activeTab === "flags" && selectedGroup === "entire_flag") {
                       // For flags, apply color to all elements
