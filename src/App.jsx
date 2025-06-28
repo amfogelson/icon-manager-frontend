@@ -399,9 +399,9 @@ function App() {
 
   // Filter items based on search term and active tab
   const filteredItems = activeTab === "icons" 
-    ? (currentFolder ? icons.filter(item => item.toLowerCase().includes(searchTerm.toLowerCase())) : [])
+    ? (currentFolder ? icons.filter(item => item.toLowerCase().includes(searchTerm.toLowerCase())).sort() : [])
     : activeTab === "flags"
-      ? getCountryNames().filter(country => country.toLowerCase().includes(searchTerm.toLowerCase()))
+      ? getCountryNames().filter(country => country.toLowerCase().includes(searchTerm.toLowerCase())).sort()
       : [];
 
   // Handle tab change
