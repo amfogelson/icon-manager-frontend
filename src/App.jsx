@@ -13,6 +13,7 @@ function App() {
   const [flags, setFlags] = useState([]);
   const [folders, setFolders] = useState({});
   const [currentFolder, setCurrentFolder] = useState(null);
+  const [allIcons, setAllIcons] = useState([]); // For global search
   const [selectedIcon, setSelectedIcon] = useState(null);
   const [groups, setGroups] = useState([]);
   const [svgUrl, setSvgUrl] = useState("");
@@ -26,13 +27,30 @@ function App() {
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [flagType, setFlagType] = useState("rectangle"); // "rectangle" or "circle"
   const [groupColors, setGroupColors] = useState({}); // Track colors for each group of current icon
+  const [isLoading, setIsLoading] = useState(true); // Add loading state
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
   useEffect(() => {
+    setIsLoading(true);
     axios.get(`${backendUrl}/icons`)
-      .then(res => setFolders(res.data.folders))
-      .catch(err => console.error(err));
+      .then(res => {
+        setFolders(res.data.folders);
+        
+        // Collect all icons from all folders for global search
+        const allIconsList = [];
+        Object.entries(res.data.folders).forEach(([folderName, icons]) => {
+          icons.forEach(iconName => {
+            allIconsList.push({ name: iconName, folder: folderName });
+          });
+        });
+        setAllIcons(allIconsList);
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setIsLoading(false);
+      });
     
     axios.get(`${backendUrl}/flags`)
       .then(res => setFlags(res.data.flags))
@@ -98,6 +116,10 @@ function App() {
   };
 
   const loadGroups = (itemName) => {
+    console.log('loadGroups called with:', itemName);
+    console.log('Current activeTab:', activeTab);
+    console.log('Current currentFolder:', currentFolder);
+    
     if (activeTab === "flags") {
       // For flags, set the selected country
       setSelectedCountry(itemName);
@@ -119,21 +141,34 @@ function App() {
       }
     } else {
       // For icons, use folder-aware logic
+      console.log('Setting selectedIcon to:', itemName);
       setSelectedIcon(itemName);
       const folderPath = currentFolder || "Root";
+      console.log('Using folderPath:', folderPath);
+      
+      let svgUrlToSet;
       if (folderPath === "Root") {
-        setSvgUrl(`${backendUrl}/static/${itemName}.svg`);
+        svgUrlToSet = `${backendUrl}/static/${itemName}.svg`;
       } else {
-        setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${itemName}.svg`);
+        svgUrlToSet = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
       }
+      console.log('loadGroups setting SVG URL to:', svgUrlToSet);
+      setSvgUrl(svgUrlToSet);
+      
       setSelectedGroup(null);
       setGroupColors({}); // Reset group colors for new icon
       
       // Only load groups for icons, not for flags
       if (activeTab === "icons") {
+        console.log('Loading groups for icon:', itemName);
         axios.get(`${backendUrl}/groups/icon/${folderPath}/${itemName}.svg`) // Append .svg extension
-          .then(res => setGroups(res.data.groups))
-          .catch(err => console.error(err));
+          .then(res => {
+            console.log('Groups loaded:', res.data.groups);
+            setGroups(res.data.groups);
+          })
+          .catch(err => {
+            console.error('Error loading groups:', err);
+          });
       } else {
         setGroups([]); // No groups for flags
       }
@@ -399,7 +434,12 @@ function App() {
 
   // Filter items based on search term and active tab
   const filteredItems = activeTab === "icons" 
-    ? (currentFolder ? icons.filter(item => item.toLowerCase().includes(searchTerm.toLowerCase())).sort() : [])
+    ? (currentFolder 
+        ? icons.filter(item => item.toLowerCase().includes(searchTerm.toLowerCase())).sort()
+        : searchTerm && !isLoading && allIcons.length > 0
+          ? allIcons.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name))
+          : []
+      )
     : activeTab === "flags"
       ? getCountryNames().filter(country => country.toLowerCase().includes(searchTerm.toLowerCase())).sort()
       : [];
@@ -437,15 +477,72 @@ function App() {
 
   const loadIconsFromFolder = (folderName) => {
     setCurrentFolder(folderName);
+    setIcons(folders[folderName]);
     setSelectedIcon(null);
     setSelectedGroup(null);
     setSvgUrl("");
     setGroups([]);
     setGroupColors({});
+    setSearchTerm(""); // Clear search when entering a folder
+  };
+
+  const loadGroupsWithFolder = (itemName, folder) => {
+    console.log('loadGroupsWithFolder called with:', itemName, folder);
+    console.log('Current activeTab:', activeTab);
     
-    axios.get(`${backendUrl}/icons/${folderName}`)
-      .then(res => setIcons(res.data.icons))
-      .catch(err => console.error(err));
+    if (activeTab === "flags") {
+      // For flags, set the selected country
+      setSelectedCountry(itemName);
+      setSelectedIcon(null);
+      setSelectedGroup(null);
+      setSvgUrl("");
+      setGroups([]);
+      setGroupColors({}); // Reset group colors for flags
+      
+      // Default to rectangle if available, otherwise circle
+      if (flagTypeExists(itemName, "rectangle")) {
+        setFlagType("rectangle");
+        const filename = getFlagFilename(itemName, "rectangle");
+        setSvgUrl(`${backendUrl}/flags/${filename}`);
+      } else if (flagTypeExists(itemName, "circle")) {
+        setFlagType("circle");
+        const filename = getFlagFilename(itemName, "circle");
+        setSvgUrl(`${backendUrl}/flags/${filename}`);
+      }
+    } else {
+      // For icons, use folder-aware logic
+      console.log('Setting selectedIcon to:', itemName);
+      setSelectedIcon(itemName);
+      const folderPath = folder || "Root";
+      console.log('Using folderPath:', folderPath);
+      
+      let svgUrlToSet;
+      if (folderPath === "Root") {
+        svgUrlToSet = `${backendUrl}/static/${itemName}.svg`;
+      } else {
+        svgUrlToSet = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
+      }
+      console.log('loadGroupsWithFolder setting SVG URL to:', svgUrlToSet);
+      setSvgUrl(svgUrlToSet);
+      
+      setSelectedGroup(null);
+      setGroupColors({}); // Reset group colors for new icon
+      
+      // Only load groups for icons, not for flags
+      if (activeTab === "icons") {
+        console.log('Loading groups for icon:', itemName);
+        axios.get(`${backendUrl}/groups/icon/${folderPath}/${itemName}.svg`) // Append .svg extension
+          .then(res => {
+            console.log('Groups loaded:', res.data.groups);
+            setGroups(res.data.groups);
+          })
+          .catch(err => {
+            console.error('Error loading groups:', err);
+          });
+      } else {
+        setGroups([]); // No groups for flags
+      }
+    }
   };
 
   return (
@@ -509,7 +606,7 @@ function App() {
             <div className="mb-4">
               <input
                 type="text"
-                placeholder={`Search ${activeTab}...`}
+                placeholder={activeTab === "icons" && !currentFolder ? "Search all icons..." : `Search ${activeTab}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={`w-full px-3 py-2 rounded-lg border transition-colors ${
@@ -521,12 +618,61 @@ function App() {
             </div>
             
             <div className="flex flex-col gap-3 max-h-[360px] overflow-y-auto">
-              {activeTab === "icons" && !currentFolder && Object.keys(folders).map(folderName => (
+              {isLoading && (
+                <div className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Loading icons...
+                </div>
+              )}
+              {activeTab === "icons" && !currentFolder && !searchTerm && !isLoading && Object.keys(folders).map(folderName => (
                 <button
                   key={folderName}
                   className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
                   onClick={() => loadIconsFromFolder(folderName)}>
                   📁 {folderName} ({folders[folderName].length} icons)
+                </button>
+              ))}
+              {activeTab === "icons" && !currentFolder && searchTerm && filteredItems.map(item => (
+                <button
+                  key={`${item.folder}-${item.name}`}
+                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                  onClick={() => {
+                    console.log('Search result clicked:', item);
+                    console.log('Current folders state:', folders);
+                    console.log('Backend URL:', backendUrl);
+                    
+                    // Set the current folder first
+                    setCurrentFolder(item.folder);
+                    setIcons(folders[item.folder]);
+                    setSelectedIcon(null);
+                    setSelectedGroup(null);
+                    setSvgUrl("");
+                    setGroups([]);
+                    setGroupColors({});
+                    setSearchTerm(""); // Clear search when entering a folder
+                    
+                    console.log('Set currentFolder to:', item.folder);
+                    console.log('Set icons to:', folders[item.folder]);
+                    
+                    // Set a timeout to ensure the folder loads before selecting the icon
+                    setTimeout(() => {
+                      console.log('Timeout callback - setting selected icon:', item.name);
+                      setSelectedIcon(item.name);
+                      // Use the correct SVG URL path based on folder
+                      let svgUrlToSet;
+                      if (item.folder === "Root") {
+                        svgUrlToSet = `${backendUrl}/static/${item.name}.svg`;
+                      } else {
+                        svgUrlToSet = `${backendUrl}/static-icons/${item.folder}/${item.name}.svg`;
+                      }
+                      console.log('Setting SVG URL to:', svgUrlToSet);
+                      setSvgUrl(svgUrlToSet);
+                      console.log('About to call loadGroups with:', item.name);
+                      
+                      // Call loadGroups with the correct folder information
+                      loadGroupsWithFolder(item.name, item.folder);
+                    }, 500); // Increased timeout to ensure state is updated
+                  }}>
+                  🔍 {item.name} <span className="text-xs opacity-70">({item.folder})</span>
                 </button>
               ))}
               {activeTab === "icons" && currentFolder && (
@@ -541,6 +687,7 @@ function App() {
                       setSvgUrl("");
                       setGroups([]);
                       setGroupColors({});
+                      setSearchTerm(""); // Clear search when going back
                     }}>
                     ← Back to Folders
                   </button>
