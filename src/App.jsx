@@ -23,11 +23,13 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("icons"); // "icons" or "flags"
+  const [activeTab, setActiveTab] = useState("icons"); // "icons", "colorful-icons", or "flags"
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [flagType, setFlagType] = useState("rectangle"); // "rectangle" or "circle"
   const [groupColors, setGroupColors] = useState({}); // Track colors for each group of current icon
   const [isLoading, setIsLoading] = useState(true); // Add loading state
+  const [colorfulIcons, setColorfulIcons] = useState([]); // For colorful icons global search
+  const [colorfulFolders, setColorfulFolders] = useState({}); // Colorful icons folders
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
@@ -50,6 +52,24 @@ function App() {
       .catch(err => {
         console.error(err);
         setIsLoading(false);
+      });
+    
+    // Fetch colorful icons
+    axios.get(`${backendUrl}/colorful-icons`)
+      .then(res => {
+        setColorfulFolders(res.data.folders);
+        
+        // Collect all colorful icons from all folders for global search
+        const allColorfulIconsList = [];
+        Object.entries(res.data.folders).forEach(([folderName, icons]) => {
+          icons.forEach(iconName => {
+            allColorfulIconsList.push({ name: iconName, folder: folderName });
+          });
+        });
+        setColorfulIcons(allColorfulIconsList);
+      })
+      .catch(err => {
+        console.error(err);
       });
     
     axios.get(`${backendUrl}/flags`)
@@ -140,17 +160,27 @@ function App() {
         setSvgUrl(`${backendUrl}/flags/${filename}`);
       }
     } else {
-      // For icons, use folder-aware logic
+      // For icons and colorful icons, use folder-aware logic
       console.log('Setting selectedIcon to:', itemName);
       setSelectedIcon(itemName);
       const folderPath = currentFolder || "Root";
       console.log('Using folderPath:', folderPath);
       
       let svgUrlToSet;
-      if (folderPath === "Root") {
-        svgUrlToSet = `${backendUrl}/static/${itemName}.svg`;
+      if (activeTab === "colorful-icons") {
+        // Use colorful icons path
+        if (folderPath === "Root") {
+          svgUrlToSet = `${backendUrl}/colorful-icons/${itemName}.svg`;
+        } else {
+          svgUrlToSet = `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg`;
+        }
       } else {
-        svgUrlToSet = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
+        // Use regular icons path
+        if (folderPath === "Root") {
+          svgUrlToSet = `${backendUrl}/static/${itemName}.svg`;
+        } else {
+          svgUrlToSet = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
+        }
       }
       console.log('loadGroups setting SVG URL to:', svgUrlToSet);
       setSvgUrl(svgUrlToSet);
@@ -158,7 +188,7 @@ function App() {
       setSelectedGroup(null);
       setGroupColors({}); // Reset group colors for new icon
       
-      // Only load groups for icons, not for flags
+      // Only load groups for regular icons, not for colorful icons or flags
       if (activeTab === "icons") {
         console.log('Loading groups for icon:', itemName);
         axios.get(`${backendUrl}/groups/icon/${folderPath}/${itemName}.svg`) // Append .svg extension
@@ -170,7 +200,7 @@ function App() {
             console.error('Error loading groups:', err);
           });
       } else {
-        setGroups([]); // No groups for flags
+        setGroups([]); // No groups for colorful icons or flags
       }
     }
   };
@@ -440,9 +470,16 @@ function App() {
           ? allIcons.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name))
           : []
       )
-    : activeTab === "flags"
-      ? getCountryNames().filter(country => country.toLowerCase().includes(searchTerm.toLowerCase())).sort()
-      : [];
+    : activeTab === "colorful-icons"
+      ? (currentFolder 
+          ? icons.filter(item => item.toLowerCase().includes(searchTerm.toLowerCase())).sort()
+          : searchTerm && !isLoading && colorfulIcons.length > 0
+            ? colorfulIcons.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name))
+            : []
+        )
+      : activeTab === "flags"
+        ? getCountryNames().filter(country => country.toLowerCase().includes(searchTerm.toLowerCase())).sort()
+        : [];
 
   // Handle tab change
   const handleTabChange = (tab) => {
@@ -456,6 +493,11 @@ function App() {
     setFlagType("rectangle");
     setGroupColors({}); // Reset group colors when switching tabs
     setCurrentFolder(null); // Reset current folder when switching tabs
+    
+    // Load appropriate icons based on tab
+    if (tab === "colorful-icons") {
+      setIcons([]); // Will be set when folder is selected
+    }
   };
 
   // Handle flag type change (rectangle/circle)
@@ -477,7 +519,14 @@ function App() {
 
   const loadIconsFromFolder = (folderName) => {
     setCurrentFolder(folderName);
-    setIcons(folders[folderName]);
+    
+    // Use appropriate folder data based on active tab
+    if (activeTab === "colorful-icons") {
+      setIcons(colorfulFolders[folderName] || []);
+    } else {
+      setIcons(folders[folderName]);
+    }
+    
     setSelectedIcon(null);
     setSelectedGroup(null);
     setSvgUrl("");
@@ -510,17 +559,27 @@ function App() {
         setSvgUrl(`${backendUrl}/flags/${filename}`);
       }
     } else {
-      // For icons, use folder-aware logic
+      // For icons and colorful icons, use folder-aware logic
       console.log('Setting selectedIcon to:', itemName);
       setSelectedIcon(itemName);
       const folderPath = folder || "Root";
       console.log('Using folderPath:', folderPath);
       
       let svgUrlToSet;
-      if (folderPath === "Root") {
-        svgUrlToSet = `${backendUrl}/static/${itemName}.svg`;
+      if (activeTab === "colorful-icons") {
+        // Use colorful icons path
+        if (folderPath === "Root") {
+          svgUrlToSet = `${backendUrl}/colorful-icons/${itemName}.svg`;
+        } else {
+          svgUrlToSet = `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg`;
+        }
       } else {
-        svgUrlToSet = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
+        // Use regular icons path
+        if (folderPath === "Root") {
+          svgUrlToSet = `${backendUrl}/static/${itemName}.svg`;
+        } else {
+          svgUrlToSet = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
+        }
       }
       console.log('loadGroupsWithFolder setting SVG URL to:', svgUrlToSet);
       setSvgUrl(svgUrlToSet);
@@ -528,7 +587,7 @@ function App() {
       setSelectedGroup(null);
       setGroupColors({}); // Reset group colors for new icon
       
-      // Only load groups for icons, not for flags
+      // Only load groups for regular icons, not for colorful icons or flags
       if (activeTab === "icons") {
         console.log('Loading groups for icon:', itemName);
         axios.get(`${backendUrl}/groups/icon/${folderPath}/${itemName}.svg`) // Append .svg extension
@@ -540,8 +599,70 @@ function App() {
             console.error('Error loading groups:', err);
           });
       } else {
-        setGroups([]); // No groups for flags
+        setGroups([]); // No groups for colorful icons or flags
       }
+    }
+  };
+
+  const convertToGreyscale = async () => {
+    if (!selectedIcon || activeTab !== "colorful-icons") return;
+    
+    try {
+      setLoading(true);
+      const folderPath = currentFolder || "Root";
+      
+      const response = await axios.post(`${backendUrl}/greyscale`, {
+        icon_name: selectedIcon,
+        folder: folderPath
+      });
+      
+      if (response.data.status === "Converted to greyscale") {
+        // Refresh the SVG to show the greyscale version
+        const svgUrlToSet = folderPath === "Root" 
+          ? `${backendUrl}/colorful-icons/${selectedIcon}.svg?t=${Date.now()}`
+          : `${backendUrl}/colorful-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`;
+        
+        setSvgUrl(svgUrlToSet);
+        toast.success("Icon converted to greyscale!");
+      } else {
+        toast.error("Failed to convert to greyscale");
+      }
+    } catch (error) {
+      console.error('Error converting to greyscale:', error);
+      toast.error("Failed to convert to greyscale");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const revertToColor = async () => {
+    if (!selectedIcon || activeTab !== "colorful-icons") return;
+    
+    try {
+      setLoading(true);
+      const folderPath = currentFolder || "Root";
+      
+      const response = await axios.post(`${backendUrl}/revert`, {
+        icon_name: selectedIcon,
+        folder: folderPath
+      });
+      
+      if (response.data.status === "Reverted to original colors") {
+        // Refresh the SVG to show the original colorful version
+        const svgUrlToSet = folderPath === "Root" 
+          ? `${backendUrl}/colorful-icons/${selectedIcon}.svg?t=${Date.now()}`
+          : `${backendUrl}/colorful-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`;
+        
+        setSvgUrl(svgUrlToSet);
+        toast.success("Icon reverted to original colors!");
+      } else {
+        toast.error("Failed to revert to original colors");
+      }
+    } catch (error) {
+      console.error('Error reverting to color:', error);
+      toast.error("Failed to revert to original colors");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -591,6 +712,16 @@ function App() {
                 Icons
               </button>
               <button
+                onClick={() => handleTabChange("colorful-icons")}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  activeTab === "colorful-icons"
+                    ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
+                    : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
+                }`}
+              >
+                Colorful Icons
+              </button>
+              <button
                 onClick={() => handleTabChange("flags")}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "flags"
@@ -606,7 +737,11 @@ function App() {
             <div className="mb-4">
               <input
                 type="text"
-                placeholder={activeTab === "icons" && !currentFolder ? "Search all icons..." : `Search ${activeTab}...`}
+                placeholder={
+                  activeTab === "icons" && !currentFolder ? "Search all icons..." :
+                  activeTab === "colorful-icons" && !currentFolder ? "Search all colorful icons..." :
+                  `Search ${activeTab}...`
+                }
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={`w-full px-3 py-2 rounded-lg border transition-colors ${
@@ -629,6 +764,14 @@ function App() {
                   className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
                   onClick={() => loadIconsFromFolder(folderName)}>
                   📁 {folderName} ({folders[folderName].length} icons)
+                </button>
+              ))}
+              {activeTab === "colorful-icons" && !currentFolder && !searchTerm && !isLoading && Object.keys(colorfulFolders).map(folderName => (
+                <button
+                  key={folderName}
+                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                  onClick={() => loadIconsFromFolder(folderName)}>
+                  🎨 {folderName} ({colorfulFolders[folderName].length} icons)
                 </button>
               ))}
               {activeTab === "icons" && !currentFolder && searchTerm && filteredItems.map(item => (
@@ -675,7 +818,45 @@ function App() {
                   🔍 {item.name} <span className="text-xs opacity-70">({item.folder})</span>
                 </button>
               ))}
-              {activeTab === "icons" && currentFolder && (
+              {activeTab === "colorful-icons" && !currentFolder && searchTerm && filteredItems.map(item => (
+                <button
+                  key={`${item.folder}-${item.name}`}
+                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                  onClick={() => {
+                    console.log('Colorful search result clicked:', item);
+                    
+                    // Set the current folder first
+                    setCurrentFolder(item.folder);
+                    setIcons(colorfulFolders[item.folder]);
+                    setSelectedIcon(null);
+                    setSelectedGroup(null);
+                    setSvgUrl("");
+                    setGroups([]);
+                    setGroupColors({});
+                    setSearchTerm(""); // Clear search when entering a folder
+                    
+                    // Set a timeout to ensure the folder loads before selecting the icon
+                    setTimeout(() => {
+                      console.log('Timeout callback - setting selected colorful icon:', item.name);
+                      setSelectedIcon(item.name);
+                      // Use the correct SVG URL path based on folder
+                      let svgUrlToSet;
+                      if (item.folder === "Root") {
+                        svgUrlToSet = `${backendUrl}/colorful-icons/${item.name}.svg`;
+                      } else {
+                        svgUrlToSet = `${backendUrl}/colorful-icons/${item.folder}/${item.name}.svg`;
+                      }
+                      console.log('Setting colorful SVG URL to:', svgUrlToSet);
+                      setSvgUrl(svgUrlToSet);
+                      
+                      // Call loadGroups with the correct folder information
+                      loadGroupsWithFolder(item.name, item.folder);
+                    }, 500); // Increased timeout to ensure state is updated
+                  }}>
+                  🎨 {item.name} <span className="text-xs opacity-70">({item.folder})</span>
+                </button>
+              ))}
+              {(activeTab === "icons" || activeTab === "colorful-icons") && currentFolder && (
                 <>
                   <button
                     className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
@@ -718,7 +899,9 @@ function App() {
           </div>
 
           <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[300px] flex-shrink-0`}>
-            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>Color Change</h3>
+            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
+              {activeTab === "colorful-icons" ? "Colorful Icon Options" : "Color Change"}
+            </h3>
             {selectedIcon || selectedCountry ? (
               activeTab === "flags" ? (
                 // Flag selection interface
@@ -765,6 +948,39 @@ function App() {
                     Export SVG
                   </button>
                 </div>
+              ) : activeTab === "colorful-icons" ? (
+                // Colorful icons interface
+                <div className="flex flex-col gap-3">
+                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>
+                    Selected: {selectedIcon}
+                  </div>
+                  <button
+                    onClick={convertToGreyscale}
+                    disabled={loading}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'}`}
+                  >
+                    {loading ? "Converting..." : "Convert to Greyscale"}
+                  </button>
+                  <button
+                    onClick={revertToColor}
+                    disabled={loading}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'}`}
+                  >
+                    {loading ? "Reverting..." : "Revert to Color"}
+                  </button>
+                  <button
+                    onClick={exportSvg}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                  >
+                    Export SVG
+                  </button>
+                  <button
+                    onClick={exportPng}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                  >
+                    Export PNG
+                  </button>
+                </div>
               ) : (
                 // Icon groups interface
                 <div className="flex flex-col gap-3">
@@ -782,11 +998,11 @@ function App() {
               <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Select an item to load groups</div>
             )}
             
-            {selectedGroup && (
+            {selectedGroup && activeTab === "icons" && (
               <div className="mt-6">
                 <div className={`p-4 rounded-lg flex flex-col items-center gap-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
                   <h3 className={`font-medium text-center text-sm ${darkMode ? 'text-white' : ''}`}>
-                    Change color for {activeTab === "flags" ? "flag" : "group"}: <span className="font-bold">{activeTab === "flags" ? selectedCountry : selectedGroup}</span>
+                    Change color for group: <span className="font-bold">{selectedGroup}</span>
                   </h3>
                   
                   {/* Company Colors */}
