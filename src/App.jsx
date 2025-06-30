@@ -38,6 +38,12 @@ function App() {
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Toggle multi-select mode
   const [isGreyscale, setIsGreyscale] = useState(false); // Track if current icon is greyscale
   const [iconListView, setIconListView] = useState("list"); // 'list' or 'grid'
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackType, setFeedbackType] = useState("New Addition");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [showFeedbackAdmin, setShowFeedbackAdmin] = useState(false);
+  const [allFeedback, setAllFeedback] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN === 'true'); // Only true if you set the env var
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
@@ -1259,11 +1265,14 @@ function App() {
         {/* Header */}
         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-10 rounded-xl shadow-lg max-w-6xl mx-auto mb-8`}>
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                Icon Manager
-              </h1>
-              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Manage and customize your icons</p>
+            <div className="flex items-center gap-3">
+              <img src="/Icon Manager.svg" alt="Icon Manager Logo" className="w-10 h-10 mr-2" />
+              <div>
+                <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  Icon Manager
+                </h1>
+                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Manage and customize your icons</p>
+              </div>
             </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center space-x-4">
@@ -1273,6 +1282,45 @@ function App() {
                 >
                   {darkMode ? '☀️' : '🌙'}
                 </button>
+                
+                {/* Feedback Button */}
+                <button
+                  onClick={() => setShowFeedbackModal(true)}
+                  className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
+                    darkMode 
+                      ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                  title="Submit Feedback"
+                >
+                  <span className="text-lg">💬</span>
+                  <span className="text-sm font-medium">Feedback</span>
+                </button>
+                
+                {/* Admin Feedback Button */}
+                {isAdmin && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await axios.get(`${backendUrl}/feedback`);
+                        setAllFeedback(response.data.feedback || []);
+                        setShowFeedbackAdmin(true);
+                      } catch (error) {
+                        console.error('Error loading feedback:', error);
+                        toast.error("Failed to load feedback");
+                      }
+                    }}
+                    className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
+                      darkMode 
+                        ? 'bg-red-600 text-white hover:bg-red-700' 
+                        : 'bg-red-500 text-white hover:bg-red-600'
+                    }`}
+                    title="View All Feedback (Admin)"
+                  >
+                    <span className="text-lg">📊</span>
+                    <span className="text-sm font-medium">View Feedback</span>
+                  </button>
+                )}
                 
                 {/* Multi-select toggle */}
                 <button
@@ -1467,12 +1515,12 @@ function App() {
                         const folderPath = currentFolder || "Root";
                         if (activeTab === "colorful-icons") {
                           iconUrl = folderPath === "Root" 
-                            ? `${backendUrl}/colorful-icons/${item}.svg`
-                            : `${backendUrl}/colorful-icons/${folderPath}/${item}.svg`;
+                            ? `${backendUrl}/colorful-icons/${item}.svg?t=${Date.now()}`
+                            : `${backendUrl}/colorful-icons/${folderPath}/${item}.svg?t=${Date.now()}`;
                         } else {
                           iconUrl = folderPath === "Root" 
-                            ? `${backendUrl}/static/${item}.svg`
-                            : `${backendUrl}/static-icons/${folderPath}/${item}.svg`;
+                            ? `${backendUrl}/static/${item}.svg?t=${Date.now()}`
+                            : `${backendUrl}/static-icons/${folderPath}/${item}.svg?t=${Date.now()}`;
                         }
                         return (
                           <button
@@ -2041,6 +2089,235 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-md w-full mx-4`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                Submit Feedback
+              </h3>
+              <button
+                onClick={() => {
+                  setShowFeedbackModal(false);
+                  setFeedbackType("New Addition");
+                  setFeedbackMessage("");
+                }}
+                className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+              >
+                <span className="text-xl">✕</span>
+              </button>
+            </div>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const response = await axios.post(`${backendUrl}/feedback`, {
+                  type: feedbackType,
+                  message: feedbackMessage
+                });
+                
+                if (response.data.status === "Feedback submitted successfully") {
+                  toast.success("Feedback submitted successfully!");
+                  setShowFeedbackModal(false);
+                  setFeedbackType("New Addition");
+                  setFeedbackMessage("");
+                } else {
+                  toast.error("Failed to submit feedback");
+                }
+              } catch (error) {
+                console.error('Error submitting feedback:', error);
+                toast.error("Failed to submit feedback");
+              }
+            }}>
+              <div className="mb-4">
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
+                  Feedback Type
+                </label>
+                <div className="space-y-2">
+                  {["New Addition", "UX/UI Improvement", "Bug Report"].map((type) => (
+                    <label key={type} className="flex items-center">
+                      <input
+                        type="radio"
+                        name="feedbackType"
+                        value={type}
+                        checked={feedbackType === type}
+                        onChange={(e) => setFeedbackType(e.target.value)}
+                        className="mr-2"
+                      />
+                      <span className={`text-sm ${darkMode ? 'text-white' : 'text-gray-700'}`}>
+                        {type}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
+                  Feedback Message
+                </label>
+                <textarea
+                  value={feedbackMessage}
+                  onChange={(e) => setFeedbackMessage(e.target.value)}
+                  placeholder="Please describe your feedback..."
+                  rows={4}
+                  className={`w-full px-3 py-2 border rounded-lg resize-none ${
+                    darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none'
+                  }`}
+                  required
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFeedbackModal(false);
+                    setFeedbackType("New Addition");
+                    setFeedbackMessage("");
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg transition ${
+                    darkMode 
+                      ? 'bg-gray-600 text-white hover:bg-gray-700' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 px-4 py-2 rounded-lg transition ${
+                    darkMode 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                  }`}
+                >
+                  Submit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Admin Modal */}
+      {showFeedbackAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-6xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                All Feedback ({allFeedback.length})
+              </h3>
+              <button
+                onClick={() => setShowFeedbackAdmin(false)}
+                className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+              >
+                <span className="text-xl">✕</span>
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {allFeedback.length === 0 ? (
+                <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  No feedback submitted yet.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className={`w-full ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <thead>
+                      <tr className={`border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                        <th className="text-left p-2">ID</th>
+                        <th className="text-left p-2">Type</th>
+                        <th className="text-left p-2">Message</th>
+                        <th className="text-left p-2">Timestamp</th>
+                        <th className="text-left p-2">Status</th>
+                        <th className="text-left p-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allFeedback.map((feedback) => (
+                        <tr key={feedback.id} className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                          <td className="p-2 font-mono text-sm">{feedback.id}</td>
+                          <td className="p-2">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              feedback.type === "Bug Report" ? "bg-red-100 text-red-800" :
+                              feedback.type === "UX/UI Improvement" ? "bg-blue-100 text-blue-800" :
+                              "bg-green-100 text-green-800"
+                            }`}>
+                              {feedback.type}
+                            </span>
+                          </td>
+                          <td className="p-2 max-w-xs">
+                            <div className="truncate" title={feedback.message}>
+                              {feedback.message}
+                            </div>
+                          </td>
+                          <td className="p-2 text-sm">
+                            {new Date(feedback.timestamp).toLocaleString()}
+                          </td>
+                          <td className="p-2">
+                            <select
+                              value={feedback.status}
+                              onChange={async (e) => {
+                                try {
+                                  await axios.put(`${backendUrl}/feedback/${feedback.id}/status`, null, {
+                                    params: { status: e.target.value }
+                                  });
+                                  // Update local state
+                                  setAllFeedback(prev => prev.map(f => 
+                                    f.id === feedback.id ? { ...f, status: e.target.value } : f
+                                  ));
+                                  toast.success("Status updated");
+                                } catch (error) {
+                                  console.error('Error updating status:', error);
+                                  toast.error("Failed to update status");
+                                }
+                              }}
+                              className={`px-2 py-1 rounded text-xs border ${
+                                darkMode 
+                                  ? 'bg-gray-700 border-gray-600 text-white' 
+                                  : 'bg-white border-gray-300 text-gray-800'
+                              }`}
+                            >
+                              <option value="new">New</option>
+                              <option value="read">Read</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="resolved">Resolved</option>
+                            </select>
+                          </td>
+                          <td className="p-2">
+                            <button
+                              onClick={() => {
+                                // Show full message in a toast or alert
+                                toast.info(feedback.message, {
+                                  autoClose: false,
+                                  closeOnClick: false,
+                                  draggable: true
+                                });
+                              }}
+                              className={`px-2 py-1 rounded text-xs ${
+                                darkMode 
+                                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                  : 'bg-blue-500 text-white hover:bg-blue-600'
+                              }`}
+                            >
+                              View Full
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
