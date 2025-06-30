@@ -37,6 +37,7 @@ function App() {
   const [selectedColorfulIconsWithFolders, setSelectedColorfulIconsWithFolders] = useState(new Map());
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Toggle multi-select mode
   const [isGreyscale, setIsGreyscale] = useState(false); // Track if current icon is greyscale
+  const [iconListView, setIconListView] = useState("list"); // 'list' or 'grid'
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
@@ -1242,6 +1243,18 @@ function App() {
            backgroundPosition: 'center',
            backgroundAttachment: 'fixed'
          }}>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        transition={Slide}
+      />
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-10 rounded-xl shadow-lg max-w-6xl mx-auto mb-8`}>
@@ -1356,62 +1369,46 @@ function App() {
               />
             </div>
             
+            {/* View Toggle for Icons/Colorful Icons */}
+            {(activeTab === "icons" || activeTab === "colorful-icons") && (
+              <div className="flex justify-end mb-2 gap-2">
+                <button
+                  className={`flex items-center px-2 py-1 rounded ${iconListView === "list" ? "bg-blue-500 text-white" : darkMode ? "bg-gray-700 text-white" : "bg-gray-200"}`}
+                  onClick={() => setIconListView("list")}
+                  title="List View"
+                >
+                  <span className="mr-1">🔤</span>
+                  <span className="text-xs font-medium">List View</span>
+                </button>
+                <button
+                  className={`flex items-center px-2 py-1 rounded ${iconListView === "grid" ? "bg-blue-500 text-white" : darkMode ? "bg-gray-700 text-white" : "bg-gray-200"}`}
+                  onClick={() => setIconListView("grid")}
+                  title="Grid View"
+                >
+                  <span className="mr-1">🖼️</span>
+                  <span className="text-xs font-medium">Grid View</span>
+                </button>
+              </div>
+            )}
+            
             <div className="flex flex-col gap-3 max-h-[360px] overflow-y-auto">
               {isLoading && (
                 <div className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   Loading icons...
                 </div>
               )}
-              {activeTab === "icons" && !currentFolder && !searchTerm && !isLoading && Object.keys(folders).map(folderName => (
-                <button
-                  key={folderName}
-                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
-                  onClick={() => loadIconsFromFolder(folderName)}>
-                  📁 {folderName} ({folders[folderName].length} icons)
-                </button>
-              ))}
-              {activeTab === "colorful-icons" && !currentFolder && !searchTerm && !isLoading && Object.keys(colorfulFolders).map(folderName => (
-                <button
-                  key={folderName}
-                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
-                  onClick={() => loadIconsFromFolder(folderName)}>
-                  🎨 {folderName} ({colorfulFolders[folderName].length} icons)
-                </button>
-              ))}
-              {activeTab === "icons" && !currentFolder && searchTerm && filteredItems.map(item => (
-                <button
-                  key={`${item.folder}-${item.name}`}
-                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
-                    isMultiSelectMode && selectedIcons && selectedIcons.has(item.name)
-                      ? 'bg-blue-600 text-white font-semibold border-blue-600'
-                      : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'
-                  }`}
-                  onClick={() => handleSearchResultClick(item)}>
-                  <span>🔍 {item.name} <span className="text-xs opacity-70">({item.folder})</span></span>
-                  {isMultiSelectMode && (
-                    <span className="ml-2">
-                      {selectedIcons.has(item.name) ? '☑️' : '☐'}
-                    </span>
-                  )}
-                </button>
-              ))}
-              {activeTab === "colorful-icons" && !currentFolder && searchTerm && filteredItems.map(item => (
-                <button
-                  key={`${item.folder}-${item.name}`}
-                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
-                    isMultiSelectMode && selectedColorfulIcons && selectedColorfulIcons.has(item.name)
-                      ? 'bg-blue-600 text-white font-semibold border-blue-600'
-                      : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'
-                  }`}
-                  onClick={() => handleSearchResultClick(item)}>
-                  <span>🎨 {item.name} <span className="text-xs opacity-70">({item.folder})</span></span>
-                  {isMultiSelectMode && (
-                    <span className="ml-2">
-                      {selectedColorfulIcons.has(item.name) ? '☑️' : '☐'}
-                    </span>
-                  )}
-                </button>
-              ))}
+              {/* Icons and Colorful Icons Folder View */}
+              {(activeTab === "icons" || activeTab === "colorful-icons") && !currentFolder && !searchTerm && !isLoading && (
+                Object.keys(activeTab === "icons" ? folders : colorfulFolders).map(folderName => (
+                  <button
+                    key={folderName}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                    onClick={() => loadIconsFromFolder(folderName)}>
+                    {activeTab === "colorful-icons" ? "🎨" : "📁"} {folderName} ({(activeTab === "icons" ? folders : colorfulFolders)[folderName].length} icons)
+                  </button>
+                ))
+              )}
+              {/* Icons and Colorful Icons List/Grid View */}
               {(activeTab === "icons" || activeTab === "colorful-icons") && currentFolder && (
                 <>
                   <button
@@ -1428,40 +1425,99 @@ function App() {
                     }}>
                     ← Back to Folders
                   </button>
-                  {filteredItems.map(item => (
-                    <button
-                      key={item}
-                      className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
-                        isMultiSelectMode 
-                          ? (activeTab === "icons" && selectedIcons && selectedIcons.has(item)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item))
-                            ? 'bg-blue-600 text-white font-semibold border-blue-600'
-                            : darkMode 
-                              ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                              : 'hover:bg-blue-100 text-gray-700'
-                          : selectedIcon === item || selectedCountry === item 
-                            ? 'bg-[#2E5583] text-white font-semibold' 
-                            : darkMode 
-                              ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                              : 'hover:bg-blue-100 text-gray-700'
-                      }`}
-                      onClick={() => {
-                        if (activeTab === "icons") {
-                          handleIconClick(item);
-                        } else if (activeTab === "colorful-icons") {
-                          handleColorfulIconClick(item);
-                        }
-                      }}>
-                      <span>{item}</span>
-                      {isMultiSelectMode && (
-                        <span className="ml-2">
-                          {(activeTab === "icons" && selectedIcons && selectedIcons.has(item)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item))
-                            ? '☑️'
-                            : '☐'
+                  {iconListView === "list" ? (
+                    filteredItems.map(item => (
+                      <button
+                        key={item}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
+                          isMultiSelectMode 
+                            ? (activeTab === "icons" && selectedIcons && selectedIcons.has(item)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item))
+                              ? 'bg-blue-600 text-white font-semibold border-blue-600'
+                              : darkMode 
+                                ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
+                                : 'hover:bg-blue-100 text-gray-700'
+                            : selectedIcon === item || selectedCountry === item 
+                              ? 'bg-[#2E5583] text-white font-semibold' 
+                              : darkMode 
+                                ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
+                                : 'hover:bg-blue-100 text-gray-700'
+                        }`}
+                        onClick={() => {
+                          if (activeTab === "icons") {
+                            handleIconClick(item);
+                          } else if (activeTab === "colorful-icons") {
+                            handleColorfulIconClick(item);
                           }
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                        }}>
+                        <span>{item}</span>
+                        {isMultiSelectMode && (
+                          <span className="ml-2">
+                            {(activeTab === "icons" && selectedIcons && selectedIcons.has(item)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item))
+                              ? '☑️'
+                              : '☐'
+                            }
+                          </span>
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3">
+                      {filteredItems.map(item => {
+                        let iconUrl;
+                        const folderPath = currentFolder || "Root";
+                        if (activeTab === "colorful-icons") {
+                          iconUrl = folderPath === "Root" 
+                            ? `${backendUrl}/colorful-icons/${item}.svg`
+                            : `${backendUrl}/colorful-icons/${folderPath}/${item}.svg`;
+                        } else {
+                          iconUrl = folderPath === "Root" 
+                            ? `${backendUrl}/static/${item}.svg`
+                            : `${backendUrl}/static-icons/${folderPath}/${item}.svg`;
+                        }
+                        return (
+                          <button
+                            key={item}
+                            className={`flex flex-col items-center p-2 rounded-lg border transition w-full h-28 justify-center ${
+                              isMultiSelectMode 
+                                ? (activeTab === "icons" && selectedIcons && selectedIcons.has(item)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item))
+                                  ? 'bg-blue-600 text-white font-semibold border-blue-600'
+                                  : darkMode 
+                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
+                                    : 'hover:bg-blue-100 text-gray-700'
+                                : selectedIcon === item || selectedCountry === item 
+                                  ? 'bg-[#2E5583] text-white font-semibold' 
+                                  : darkMode 
+                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
+                                    : 'hover:bg-blue-100 text-gray-700'
+                            }`}
+                            onClick={() => {
+                              if (activeTab === "icons") {
+                                handleIconClick(item);
+                              } else if (activeTab === "colorful-icons") {
+                                handleColorfulIconClick(item);
+                              }
+                            }}
+                          >
+                            <img
+                              src={iconUrl}
+                              alt={item}
+                              className="w-12 h-12 object-contain mb-1"
+                              onError={e => e.target.style.display = 'none'}
+                            />
+                            <span className="text-xs truncate w-full text-center">{item}</span>
+                            {isMultiSelectMode && (
+                              <span className="ml-2">
+                                {(activeTab === "icons" && selectedIcons && selectedIcons.has(item)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item))
+                                  ? '☑️'
+                                  : '☐'
+                                }
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </>
               )}
               {activeTab === "flags" && getCountryNames().map(item => (
@@ -1768,13 +1824,13 @@ function App() {
                   <input
                     type="color"
                     value={currentColor}
-                    onChange={(e) => setCurrentColor(e.target.value)}
+                    onChange={(e) => !isMultiSelectMode ? selectCompanyColor(e.target.value) : setCurrentColor(e.target.value)}
                     className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={currentColor}
-                    onChange={(e) => setCurrentColor(e.target.value)}
+                    onChange={(e) => !isMultiSelectMode ? selectCompanyColor(e.target.value) : setCurrentColor(e.target.value)}
                     className={`flex-1 px-3 py-2 border border-gray-300 rounded ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-900'}`}
                     placeholder="#000000"
                   />
@@ -1833,29 +1889,35 @@ function App() {
             {/* Export Options for Flags */}
             {((selectedCountry && !isMultiSelectMode) || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && activeTab === "flags")) && activeTab === "flags" && (
               <div className="mt-6">
-                <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Export Options
-                </h4>
+                {!isMultiSelectMode && (
+                  <>
+                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      Export Options
+                    </h4>
+                  </>
+                )}
                 <div className="flex gap-2">
-                  <button
-                    onClick={isMultiSelectMode ? exportMultipleSvg : exportSvg}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
-                  >
-                    {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} SVGs` : "Export SVG"}
-                  </button>
-                  <button
-                    onClick={isMultiSelectMode ? exportMultiplePng : exportPng}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
-                  >
-                    {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} PNGs` : "Export PNG"}
-                  </button>
                   {!isMultiSelectMode && (
-                    <button
-                      onClick={handleCopyAsImage}
-                      className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
-                    >
-                      Copy to Clipboard
-                    </button>
+                    <>
+                      <button
+                        onClick={exportSvg}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                      >
+                        Export SVG
+                      </button>
+                      <button
+                        onClick={exportPng}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                      >
+                        Export PNG
+                      </button>
+                      <button
+                        onClick={handleCopyAsImage}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
+                      >
+                        Copy to Clipboard
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
