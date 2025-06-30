@@ -1163,6 +1163,75 @@ function App() {
     setSearchTerm('');
   };
 
+  const handleCopySvg = async () => {
+    try {
+      let url = svgUrl;
+      // For flags, svgUrl is already set correctly
+      // For icons and colorful icons, svgUrl is also set correctly
+      if (!url) {
+        toast.error("No SVG to copy");
+        return;
+      }
+      const response = await fetch(url);
+      const svgContent = await response.text();
+      await navigator.clipboard.writeText(svgContent);
+      toast.success("SVG copied to clipboard!");
+    } catch (error) {
+      console.error('Error copying SVG:', error);
+      toast.error("Failed to copy SVG");
+    }
+  }
+
+  const handleCopyAsImage = async () => {
+    try {
+      let url = svgUrl;
+      if (!url) {
+        toast.error("No SVG to copy as image");
+        return;
+      }
+      const response = await fetch(url);
+      const svgText = await response.text();
+      // Create an image from SVG
+      const img = new window.Image();
+      const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+      const urlObj = URL.createObjectURL(svgBlob);
+      img.src = urlObj;
+      img.onload = async () => {
+        try {
+          // Create a canvas with the same size as the SVG image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width || 512;
+          canvas.height = img.height || 512;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Convert canvas to blob
+          canvas.toBlob(async (blob) => {
+            try {
+              if (!blob) throw new Error('Failed to create PNG blob');
+              await navigator.clipboard.write([
+                new window.ClipboardItem({ 'image/png': blob })
+              ]);
+              toast.success('Image copied to clipboard!');
+            } catch (err) {
+              console.error('Clipboard write failed:', err);
+              toast.error('Failed to copy image');
+            }
+          }, 'image/png');
+        } finally {
+          URL.revokeObjectURL(urlObj);
+        }
+      };
+      img.onerror = (e) => {
+        URL.revokeObjectURL(urlObj);
+        toast.error('Failed to load SVG for image copy');
+      };
+    } catch (error) {
+      console.error('Error copying as image:', error);
+      toast.error('Failed to copy as image');
+    }
+  };
+
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`} 
          style={{
@@ -1541,17 +1610,6 @@ function App() {
                         {loading ? "Converting..." : "Convert to Greyscale"}
                       </button>
                       <button
-                        onClick={enableGreyscaleMode}
-                        disabled={loading || isGreyscale}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${
-                          isGreyscale 
-                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                            : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        Enable Greyscale Mode
-                      </button>
-                      <button
                         onClick={revertToColor}
                         disabled={loading || !isGreyscale}
                         className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${
@@ -1723,34 +1781,19 @@ function App() {
                 </div>
                 <div className="flex gap-2 mt-4">
                   {!isMultiSelectMode && (
-                    <>
-                      <button
-                        onClick={() => applyColorChange(currentColor)}
-                        disabled={loading}
-                        className={`px-4 py-2 rounded-lg transition ${
-                          loading 
-                            ? 'bg-gray-400 cursor-not-allowed' 
-                            : darkMode 
-                              ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                              : 'bg-blue-500 text-white hover:bg-blue-600'
-                        }`}
-                      >
-                        {loading ? "Applying..." : "Apply Color"}
-                      </button>
-                      <button
-                        onClick={resetColor}
-                        disabled={loading}
-                        className={`px-4 py-2 rounded-lg transition ${
-                          loading 
-                            ? 'bg-gray-400 cursor-not-allowed' 
-                            : darkMode 
-                              ? 'bg-gray-600 text-white hover:bg-gray-700' 
-                              : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                        }`}
-                      >
-                        Reset
-                      </button>
-                    </>
+                    <button
+                      onClick={resetColor}
+                      disabled={loading}
+                      className={`px-4 py-2 rounded-lg transition ${
+                        loading 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : darkMode 
+                            ? 'bg-gray-600 text-white hover:bg-gray-700' 
+                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                      }`}
+                    >
+                      Reset
+                    </button>
                   )}
                 </div>
               </div>
@@ -1775,6 +1818,45 @@ function App() {
                   >
                     {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} PNGs` : "Export PNG"}
                   </button>
+                  {!isMultiSelectMode && (
+                    <button
+                      onClick={handleCopyAsImage}
+                      className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
+                    >
+                      Copy to Clipboard
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Export Options for Flags */}
+            {((selectedCountry && !isMultiSelectMode) || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && activeTab === "flags")) && activeTab === "flags" && (
+              <div className="mt-6">
+                <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  Export Options
+                </h4>
+                <div className="flex gap-2">
+                  <button
+                    onClick={isMultiSelectMode ? exportMultipleSvg : exportSvg}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                  >
+                    {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} SVGs` : "Export SVG"}
+                  </button>
+                  <button
+                    onClick={isMultiSelectMode ? exportMultiplePng : exportPng}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                  >
+                    {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} PNGs` : "Export PNG"}
+                  </button>
+                  {!isMultiSelectMode && (
+                    <button
+                      onClick={handleCopyAsImage}
+                      className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
+                    >
+                      Copy to Clipboard
+                    </button>
+                  )}
                 </div>
               </div>
             )}
