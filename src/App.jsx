@@ -30,9 +30,11 @@ function App() {
   const [isLoading, setIsLoading] = useState(true); // Add loading state
   const [colorfulIcons, setColorfulIcons] = useState([]); // For colorful icons global search
   const [colorfulFolders, setColorfulFolders] = useState({}); // Colorful icons folders
-  const [selectedIcons, setSelectedIcons] = useState(new Set()); // Multi-select for icons
-  const [selectedColorfulIcons, setSelectedColorfulIcons] = useState(new Set()); // Multi-select for colorful icons
-  const [selectedFlags, setSelectedFlags] = useState(new Set()); // Multi-select for flags
+  const [selectedIcons, setSelectedIcons] = useState(new Set());
+  const [selectedColorfulIcons, setSelectedColorfulIcons] = useState(new Set());
+  const [selectedFlags, setSelectedFlags] = useState(new Set());
+  const [selectedIconsWithFolders, setSelectedIconsWithFolders] = useState(new Map());
+  const [selectedColorfulIconsWithFolders, setSelectedColorfulIconsWithFolders] = useState(new Map());
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Toggle multi-select mode
   const [isGreyscale, setIsGreyscale] = useState(false); // Track if current icon is greyscale
 
@@ -832,12 +834,16 @@ function App() {
       setSelectedIcons(new Set());
       setSelectedColorfulIcons(new Set());
       setSelectedFlags(new Set());
+      setSelectedIconsWithFolders(new Map());
+      setSelectedColorfulIconsWithFolders(new Map());
     }
   };
 
   const toggleIconSelection = (iconName) => {
     try {
       if (!isMultiSelectMode) return;
+      
+      const folderPath = currentFolder || "Root";
       
       if (activeTab === "icons") {
         setSelectedIcons(prev => {
@@ -849,6 +855,16 @@ function App() {
           }
           return newSet;
         });
+        
+        setSelectedIconsWithFolders(prev => {
+          const newMap = new Map(prev || []);
+          if (newMap.has(iconName)) {
+            newMap.delete(iconName);
+          } else {
+            newMap.set(iconName, folderPath);
+          }
+          return newMap;
+        });
       } else if (activeTab === "colorful-icons") {
         setSelectedColorfulIcons(prev => {
           const newSet = new Set(prev || []);
@@ -858,6 +874,16 @@ function App() {
             newSet.add(iconName);
           }
           return newSet;
+        });
+        
+        setSelectedColorfulIconsWithFolders(prev => {
+          const newMap = new Map(prev || []);
+          if (newMap.has(iconName)) {
+            newMap.delete(iconName);
+          } else {
+            newMap.set(iconName, folderPath);
+          }
+          return newMap;
         });
       } else if (activeTab === "flags") {
         setSelectedFlags(prev => {
@@ -895,18 +921,18 @@ function App() {
     
     try {
       setLoading(true);
-      const folderPath = currentFolder || "Root";
       
-      // Apply color to all selected icons
-      const promises = selectedIconList.map(iconName => 
-        axios.post(`${backendUrl}/update_color`, {
+      // Apply color to all selected icons using their stored folder information
+      const promises = selectedIconList.map(iconName => {
+        const folderPath = selectedIconsWithFolders.get(iconName) || "Root";
+        return axios.post(`${backendUrl}/update_color`, {
           icon_name: iconName + ".svg",
           group_id: groupName,
           color: color,
           type: "icon",
           folder: folderPath
-        })
-      );
+        });
+      });
       
       await Promise.all(promises);
       
@@ -930,15 +956,15 @@ function App() {
     
     try {
       setLoading(true);
-      const folderPath = currentFolder || "Root";
       
-      // Convert all selected icons to greyscale
-      const promises = selectedIconList.map(iconName => 
-        axios.post(`${backendUrl}/greyscale`, {
+      // Convert all selected icons to greyscale using their stored folder information
+      const promises = selectedIconList.map(iconName => {
+        const folderPath = selectedColorfulIconsWithFolders.get(iconName) || "Root";
+        return axios.post(`${backendUrl}/greyscale`, {
           icon_name: iconName,
           folder: folderPath
-        })
-      );
+        });
+      });
       
       await Promise.all(promises);
       
@@ -962,15 +988,15 @@ function App() {
     
     try {
       setLoading(true);
-      const folderPath = currentFolder || "Root";
       
-      // Revert all selected icons to original colors
-      const promises = selectedIconList.map(iconName => 
-        axios.post(`${backendUrl}/revert`, {
+      // Revert all selected icons to original colors using their stored folder information
+      const promises = selectedIconList.map(iconName => {
+        const folderPath = selectedColorfulIconsWithFolders.get(iconName) || "Root";
+        return axios.post(`${backendUrl}/revert`, {
           icon_name: iconName,
           folder: folderPath
-        })
-      );
+        });
+      });
       
       await Promise.all(promises);
       
@@ -994,12 +1020,13 @@ function App() {
     
     try {
       setLoading(true);
-      const folderPath = currentFolder || "Root";
       
-      // Reset all selected icons to original colors by applying default colors to both groups
+      // Reset all selected icons to original colors using their stored folder information
       const promises = [];
       
       for (const iconName of selectedIconList) {
+        const folderPath = selectedIconsWithFolders.get(iconName) || "Root";
+        
         // Reset Grey group to original grey color (#282828)
         promises.push(
           axios.post(`${backendUrl}/update_color`, {
@@ -1405,7 +1432,7 @@ function App() {
             <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
               {activeTab === "colorful-icons" ? "Colorful Icon Options" : "Color Change"}
             </h3>
-            {(selectedIcon || selectedCountry || (isMultiSelectMode && activeTab === "icons" && selectedIcons && selectedIcons.size > 0) || (isMultiSelectMode && activeTab === "flags" && selectedFlags && selectedFlags.size > 0)) ? (
+            {(selectedIcon || selectedCountry || (isMultiSelectMode && activeTab === "icons" && selectedIcons && selectedIcons.size > 0) || (isMultiSelectMode && activeTab === "flags" && selectedFlags && selectedFlags.size > 0) || (isMultiSelectMode && activeTab === "colorful-icons")) ? (
               activeTab === "flags" ? (
                 // Flag selection interface
                 <div className="flex flex-col gap-3">
@@ -1504,48 +1531,55 @@ function App() {
                   <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>
                     Selected: {selectedIcon}
                   </div>
-                  <button
-                    onClick={convertToGreyscale}
-                    disabled={loading}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'}`}
-                  >
-                    {loading ? "Converting..." : "Convert to Greyscale"}
-                  </button>
-                  <button
-                    onClick={enableGreyscaleMode}
-                    disabled={loading || isGreyscale}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${
-                      isGreyscale 
-                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                        : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    Enable Greyscale Mode
-                  </button>
-                  <button
-                    onClick={revertToColor}
-                    disabled={loading || !isGreyscale}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${
-                      !isGreyscale 
-                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                        : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    {loading ? "Reverting..." : "Revert to Color"}
-                  </button>
+                  {!isMultiSelectMode && (
+                    <>
+                      <button
+                        onClick={convertToGreyscale}
+                        disabled={loading}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'}`}
+                      >
+                        {loading ? "Converting..." : "Convert to Greyscale"}
+                      </button>
+                      <button
+                        onClick={enableGreyscaleMode}
+                        disabled={loading || isGreyscale}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${
+                          isGreyscale 
+                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                            : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        Enable Greyscale Mode
+                      </button>
+                      <button
+                        onClick={revertToColor}
+                        disabled={loading || !isGreyscale}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${
+                          !isGreyscale 
+                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                            : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {loading ? "Reverting..." : "Revert to Color"}
+                      </button>
+                    </>
+                  )}
                   
                   {/* Multi-select actions for colorful icons */}
-                  {isMultiSelectMode && selectedColorfulIcons && selectedColorfulIcons.size > 0 && (
+                  {isMultiSelectMode && activeTab === "colorful-icons" && (
                     <div className={`p-4 rounded-lg border-2 border-blue-500 ${darkMode ? 'bg-[#1a365d]' : 'bg-blue-50'}`}>
                       <h4 className={`text-md font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                        Apply to {selectedColorfulIcons.size} selected icons:
+                        {selectedColorfulIcons && selectedColorfulIcons.size > 0 
+                          ? `Apply to ${selectedColorfulIcons.size} selected icons:` 
+                          : 'Select colorful icons to apply actions:'
+                        }
                       </h4>
                       <div className="flex gap-2">
                         <button
                           onClick={convertMultipleToGreyscale}
-                          disabled={loading}
+                          disabled={loading || !selectedColorfulIcons || selectedColorfulIcons.size === 0}
                           className={`px-4 py-2 rounded-lg transition ${
-                            loading 
+                            loading || !selectedColorfulIcons || selectedColorfulIcons.size === 0
                               ? 'bg-gray-400 cursor-not-allowed' 
                               : darkMode 
                                 ? 'bg-gray-600 text-white hover:bg-gray-700' 
@@ -1556,9 +1590,9 @@ function App() {
                         </button>
                         <button
                           onClick={revertMultipleToColor}
-                          disabled={loading}
+                          disabled={loading || !selectedColorfulIcons || selectedColorfulIcons.size === 0}
                           className={`px-4 py-2 rounded-lg transition ${
-                            loading 
+                            loading || !selectedColorfulIcons || selectedColorfulIcons.size === 0
                               ? 'bg-gray-400 cursor-not-allowed' 
                               : darkMode 
                                 ? 'bg-blue-600 text-white hover:bg-blue-700' 
@@ -1577,10 +1611,11 @@ function App() {
                 <div className="flex flex-col gap-3">
                   {(() => {
                     let groupsToShow = [];
-                    if (groups && groups.length > 0) {
+                    if (groups && groups.length > 0 && !isMultiSelectMode) {
                       groupsToShow = groups;
                     } else if (isMultiSelectMode) {
-                      groupsToShow = ["Color", "Grey"];
+                      // Don't show individual group buttons in multi-select mode
+                      groupsToShow = [];
                     }
                     
                     return groupsToShow.map((group, idx) => (
@@ -1772,15 +1807,17 @@ function App() {
                             if (activeTab === "flags") {
                               iconUrl = `${backendUrl}/flags/${getFlagFilename(itemName, flagType)}?t=${Date.now()}`;
                             } else if (activeTab === "colorful-icons") {
-                              const folderPath = currentFolder || "Root";
-                              iconUrl = folderPath === "Root" 
+                              // Use stored folder information for colorful icons
+                              const storedFolder = selectedColorfulIconsWithFolders.get(itemName) || "Root";
+                              iconUrl = storedFolder === "Root" 
                                 ? `${backendUrl}/colorful-icons/${itemName}.svg?t=${Date.now()}`
-                                : `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg?t=${Date.now()}`;
+                                : `${backendUrl}/colorful-icons/${storedFolder}/${itemName}.svg?t=${Date.now()}`;
                             } else {
-                              const folderPath = currentFolder || "Root";
-                              iconUrl = folderPath === "Root" 
+                              // Use stored folder information for regular icons
+                              const storedFolder = selectedIconsWithFolders.get(itemName) || "Root";
+                              iconUrl = storedFolder === "Root" 
                                 ? `${backendUrl}/static/${itemName}.svg?t=${Date.now()}`
-                                : `${backendUrl}/static-icons/${folderPath}/${itemName}.svg?t=${Date.now()}`;
+                                : `${backendUrl}/static-icons/${storedFolder}/${itemName}.svg?t=${Date.now()}`;
                             }
                             
                             return (
