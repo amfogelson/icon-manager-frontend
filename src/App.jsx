@@ -19,6 +19,7 @@ function App() {
   const [svgUrl, setSvgUrl] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [currentColor, setCurrentColor] = useState("#FF0000");
+  const [localPreviewColor, setLocalPreviewColor] = useState("#FF0000");
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,7 +34,6 @@ function App() {
   const [selectedColorfulIcons, setSelectedColorfulIcons] = useState(new Set()); // Multi-select for colorful icons
   const [selectedFlags, setSelectedFlags] = useState(new Set()); // Multi-select for flags
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Toggle multi-select mode
-  const [greyscaleIcons, setGreyscaleIcons] = useState(new Set()); // Track which colorful icons are in greyscale
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
@@ -211,11 +211,10 @@ function App() {
 
   const handleGroupClick = (group) => {
     setSelectedGroup(group);
+    setLocalPreviewColor(currentColor);
   };
 
   const applyColorChange = useCallback((colorToApply) => {
-    console.log('applyColorChange called with:', { colorToApply, selectedIcon, selectedGroup, activeTab, currentFolder });
-    
     if (activeTab === "flags") {
       // For flags, apply color to the entire SVG
       setLoading(true);
@@ -227,24 +226,18 @@ function App() {
       }, {
         headers: { 'Content-Type': 'application/json' }
       }).then(res => {
-        console.log('Flag color update response:', res);
         const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
-        const newSvgUrl = `${baseUrl}/${selectedIcon}?t=${Date.now()}`;
-        console.log('Setting new SVG URL for flag:', newSvgUrl);
-        setSvgUrl(newSvgUrl);
+        setSvgUrl(`${baseUrl}/${selectedIcon}?t=${Date.now()}`);
         setLoading(false);
         toast.success("Color updated");
       }).catch(err => {
-        console.error('Flag color update error:', err);
+        console.error(err);
         setLoading(false);
         toast.error("Failed to update color.");
       });
     } else {
       // For icons, apply color to specific group
-      if (!selectedGroup) {
-        console.log('No selectedGroup, returning early');
-        return;
-      }
+      if (!selectedGroup) return;
       setLoading(true);
       
       // Save the color to groupColors state
@@ -254,60 +247,25 @@ function App() {
       }));
       
       const folderPath = currentFolder || "Root";
-      const requestData = {
+      axios.post(`${backendUrl}/update_color`, {
         icon_name: selectedIcon + ".svg", // Append .svg extension for icons
         group_id: selectedGroup,
         color: colorToApply,
         type: activeTab,
         folder: folderPath
-      };
-      
-      console.log('Sending color update request:', requestData);
-      
-      axios.post(`${backendUrl}/update_color`, requestData, {
+      }, {
         headers: { 'Content-Type': 'application/json' }
-      }).then(async res => {
-        console.log('Icon color update response:', res);
-        
-        // Verify the file was actually updated by fetching it directly
-        let verifyUrl;
+      }).then(res => {
+        // Update SVG URL with folder path
         if (folderPath === "Root") {
-          verifyUrl = `${backendUrl}/static/${selectedIcon}.svg?t=${Date.now()}&v=${Math.random()}&cb=${Math.random()}`;
+          setSvgUrl(`${backendUrl}/static/${selectedIcon}.svg?t=${Date.now()}`);
         } else {
-          verifyUrl = `${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}&v=${Math.random()}&cb=${Math.random()}`;
+          setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
         }
-        
-        console.log('Verifying file update with URL:', verifyUrl);
-        
-        try {
-          // Fetch the SVG content directly to verify it was updated
-          const svgResponse = await fetch(verifyUrl);
-          const svgContent = await svgResponse.text();
-          console.log('SVG content length:', svgContent.length);
-          console.log('SVG content preview:', svgContent.substring(0, 200));
-          
-          // Check if the color was actually applied
-          if (svgContent.includes(colorToApply)) {
-            console.log('✅ Color found in SVG content!');
-          } else {
-            console.log('❌ Color NOT found in SVG content');
-          }
-          
-          // Force image reload by clearing src first, then setting new URL
-          setSvgUrl(''); // Clear the image first
-          setTimeout(() => {
-            setSvgUrl(verifyUrl);
-            setLoading(false);
-            toast.success("Color updated");
-          }, 200); // Longer delay to ensure browser processes the change
-          
-        } catch (fetchError) {
-          console.error('Error fetching SVG to verify:', fetchError);
-          setLoading(false);
-          toast.error("Failed to verify color update");
-        }
+        setLoading(false);
+        toast.success("Color updated");
       }).catch(err => {
-        console.error('Icon color update error:', err);
+        console.error(err);
         setLoading(false);
         toast.error("Failed to update color.");
       });
@@ -317,6 +275,7 @@ function App() {
   const handleColorChange = (color) => {
     const hex = color.hex;
     setCurrentColor(hex);
+    setLocalPreviewColor(hex);
 
     if (debounceTimer) clearTimeout(debounceTimer);
 
@@ -327,12 +286,6 @@ function App() {
 
   const exportSvg = async () => {
     try {
-      // Check if we're in multi-select mode and have selected icons
-      if (isMultiSelectMode && getSelectedCount() > 0) {
-        await exportMultipleSvg();
-        return;
-      }
-
       // Fetch the SVG content
       const response = await fetch(svgUrl);
       const svgContent = await response.text();
@@ -368,97 +321,8 @@ function App() {
     }
   }
 
-  const exportMultipleSvg = async () => {
-    try {
-      let selectedItems = [];
-      if (activeTab === "icons") {
-        selectedItems = Array.from(selectedIcons);
-      } else if (activeTab === "colorful-icons") {
-        selectedItems = Array.from(selectedColorfulIcons);
-      } else if (activeTab === "flags") {
-        selectedItems = Array.from(selectedFlags);
-      }
-
-      // Initial delay to ensure browser is ready
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      // Download each selected icon's SVG separately
-      for (let i = 0; i < selectedItems.length; i++) {
-        const itemName = selectedItems[i];
-        try {
-          let svgUrl;
-          if (activeTab === "flags") {
-            svgUrl = `${backendUrl}/flags/${getFlagFilename(itemName, flagType)}?t=${Date.now()}`;
-          } else if (activeTab === "colorful-icons") {
-            const folderPath = currentFolder || "Root";
-            if (folderPath === "Root") {
-              svgUrl = `${backendUrl}/colorful-icons/${itemName}.svg?t=${Date.now()}`;
-            } else {
-              svgUrl = `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg?t=${Date.now()}`;
-            }
-          } else {
-            // For regular icons, use the same URL as the display (which includes color modifications)
-            const folderPath = currentFolder || "Root";
-            if (folderPath === "Root") {
-              svgUrl = `${backendUrl}/static/${itemName}.svg?t=${Date.now()}`;
-            } else {
-              svgUrl = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg?t=${Date.now()}`;
-            }
-          }
-          
-          const response = await fetch(svgUrl);
-          const svgContent = await response.text();
-          
-          // Create a blob with the SVG content
-          const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-          
-          // Create download link
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          
-          // Set filename
-          let filename;
-          if (activeTab === "flags") {
-            filename = getFlagFilename(itemName, flagType);
-          } else {
-            filename = `${itemName}.svg`;
-          }
-          
-          link.download = filename;
-          
-          // Trigger download
-          document.body.appendChild(link);
-          link.click();
-          
-          // Clean up
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-          
-          // Longer delay between downloads to prevent browser blocking
-          // Use longer delay for first download, shorter for subsequent ones
-          const delay = i === 0 ? 300 : 150;
-          await new Promise(resolve => setTimeout(resolve, delay));
-        } catch (error) {
-          console.error(`Error downloading SVG for ${itemName}:`, error);
-        }
-      }
-      
-      toast.success(`${selectedItems.length} SVGs downloaded successfully!`);
-    } catch (error) {
-      console.error('Error downloading multiple SVGs:', error);
-      toast.error("Failed to download multiple SVGs");
-    }
-  }
-
   const exportPng = async () => {
     try {
-      // Check if we're in multi-select mode and have selected icons
-      if (isMultiSelectMode && getSelectedCount() > 0) {
-        await exportMultiplePng();
-        return;
-      }
-
       // Determine the icon name and type
       let iconName, type, folder;
       if (activeTab === "flags" && selectedCountry) {
@@ -505,75 +369,6 @@ function App() {
     }
   }
 
-  const exportMultiplePng = async () => {
-    try {
-      let selectedItems = [];
-      if (activeTab === "icons") {
-        selectedItems = Array.from(selectedIcons);
-      } else if (activeTab === "colorful-icons") {
-        selectedItems = Array.from(selectedColorfulIcons);
-      } else if (activeTab === "flags") {
-        selectedItems = Array.from(selectedFlags);
-      }
-
-      // Convert and download each selected icon to PNG separately
-      for (const itemName of selectedItems) {
-        try {
-          let iconName, type, folder;
-          if (activeTab === "flags") {
-            iconName = getFlagFilename(itemName, flagType);
-            type = "flag";
-          } else if (activeTab === "colorful-icons") {
-            iconName = itemName + ".svg";
-            type = "colorful-icon";
-            folder = currentFolder || "Root";
-          } else {
-            iconName = itemName + ".svg";
-            type = "icon";
-            folder = currentFolder || "Root";
-          }
-
-          const requestData = {
-            icon_name: iconName,
-            type: type
-          };
-          
-          if (type === "icon" || type === "colorful-icon") {
-            requestData.folder = folder;
-          }
-          
-          const response = await axios.post(`${backendUrl}/export-png`, requestData, {
-            responseType: 'blob'
-          });
-
-          // Create download link
-          const url = window.URL.createObjectURL(response.data);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = iconName.replace('.svg', '.png');
-          
-          // Trigger download
-          document.body.appendChild(link);
-          link.click();
-          
-          // Clean up
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-          
-          // Small delay between downloads to prevent browser blocking
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
-          console.error(`Error converting PNG for ${itemName}:`, error);
-        }
-      }
-      
-      toast.success(`${selectedItems.length} PNGs downloaded successfully!`);
-    } catch (error) {
-      console.error('Error downloading multiple PNGs:', error);
-      toast.error("Failed to download multiple PNGs");
-    }
-  }
-
   const resetColor = async () => {
     if (activeTab === "flags") {
       // For flags, reset entire flag
@@ -593,6 +388,7 @@ function App() {
         const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
         setSvgUrl(`${baseUrl}/${selectedIcon}?t=${Date.now()}`);
         setCurrentColor(defaultColor);
+        setLocalPreviewColor(defaultColor);
         setLoading(false);
         toast.success("Color reset to default");
       } catch (error) {
@@ -642,6 +438,7 @@ function App() {
           setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
         }
         setCurrentColor(originalColor);
+        setLocalPreviewColor(originalColor);
         setLoading(false);
         toast.success(`Color reset to original (${originalColor})`);
       } catch (error) {
@@ -654,6 +451,7 @@ function App() {
 
   const selectCompanyColor = (color) => {
     setCurrentColor(color);
+    setLocalPreviewColor(color);
     applyColorChange(color);
   };
 
@@ -725,6 +523,7 @@ function App() {
   // Handle flag color change
   const handleFlagColorChange = () => {
     setSelectedGroup("entire_flag"); // Set a special group for flags
+    setLocalPreviewColor(currentColor);
   };
 
   const loadIconsFromFolder = (folderName) => {
@@ -783,9 +582,6 @@ function App() {
         } else {
           svgUrlToSet = `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg`;
         }
-        
-        // Check if this colorful icon is in greyscale
-        checkGreyscaleStatus(itemName, folderPath);
       } else {
         // Use regular icons path
         if (folderPath === "Root") {
@@ -817,24 +613,6 @@ function App() {
     }
   };
 
-  const checkGreyscaleStatus = async (iconName, folderPath) => {
-    try {
-      // First, remove the icon from greyscale state to ensure button starts disabled
-      setGreyscaleIcons(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(iconName);
-        return newSet;
-      });
-      
-      const response = await axios.get(`${backendUrl}/check-greyscale/${folderPath}/${iconName}`);
-      if (response.data.is_greyscale) {
-        setGreyscaleIcons(prev => new Set([...prev, iconName]));
-      }
-    } catch (error) {
-      console.error('Error checking greyscale status:', error);
-    }
-  };
-
   const convertToGreyscale = async () => {
     if (!selectedIcon || activeTab !== "colorful-icons") return;
     
@@ -848,9 +626,6 @@ function App() {
       });
       
       if (response.data.status === "Converted to greyscale") {
-        // Add to greyscale tracking
-        setGreyscaleIcons(prev => new Set([...prev, selectedIcon]));
-        
         // Refresh the SVG to show the greyscale version
         const svgUrlToSet = folderPath === "Root" 
           ? `${backendUrl}/colorful-icons/${selectedIcon}.svg?t=${Date.now()}`
@@ -882,13 +657,6 @@ function App() {
       });
       
       if (response.data.status === "Reverted to original colors") {
-        // Remove from greyscale tracking
-        setGreyscaleIcons(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(selectedIcon);
-          return newSet;
-        });
-        
         // Refresh the SVG to show the original colorful version
         const svgUrlToSet = folderPath === "Root" 
           ? `${backendUrl}/colorful-icons/${selectedIcon}.svg?t=${Date.now()}`
@@ -1021,9 +789,6 @@ function App() {
       
       await Promise.all(promises);
       
-      // Add all selected icons to greyscale tracking
-      setGreyscaleIcons(prev => new Set([...prev, ...selectedIconList]));
-      
       // Refresh the current SVG if it's one of the selected icons
       if (selectedIcon && selectedColorfulIcons.has(selectedIcon)) {
         const svgUrlToSet = folderPath === "Root" 
@@ -1061,13 +826,6 @@ function App() {
       
       await Promise.all(promises);
       
-      // Remove all selected icons from greyscale tracking
-      setGreyscaleIcons(prev => {
-        const newSet = new Set(prev);
-        selectedIconList.forEach(iconName => newSet.delete(iconName));
-        return newSet;
-      });
-      
       // Refresh the current SVG if it's one of the selected icons
       if (selectedIcon && selectedColorfulIcons.has(selectedIcon)) {
         const svgUrlToSet = folderPath === "Root" 
@@ -1088,14 +846,6 @@ function App() {
   const handleIconClick = (iconName) => {
     if (isMultiSelectMode) {
       toggleIconSelection(iconName);
-      // Also update the preview to show the clicked icon
-      setSelectedIcon(iconName);
-      const folderPath = currentFolder || "Root";
-      const svgUrlToSet = folderPath === "Root" 
-        ? `${backendUrl}/static/${iconName}.svg`
-        : `${backendUrl}/static-icons/${folderPath}/${iconName}.svg`;
-      setSvgUrl(svgUrlToSet);
-      loadGroups(iconName, folderPath);
       return;
     }
     
@@ -1111,13 +861,6 @@ function App() {
   const handleColorfulIconClick = (iconName) => {
     if (isMultiSelectMode) {
       toggleIconSelection(iconName);
-      // Also update the preview to show the clicked icon
-      setSelectedIcon(iconName);
-      const folderPath = currentFolder || "Root";
-      const svgUrlToSet = folderPath === "Root" 
-        ? `${backendUrl}/colorful-icons/${iconName}.svg`
-        : `${backendUrl}/colorful-icons/${folderPath}/${iconName}.svg`;
-      setSvgUrl(svgUrlToSet);
       return;
     }
     
@@ -1132,11 +875,6 @@ function App() {
   const handleFlagClick = (flagName) => {
     if (isMultiSelectMode) {
       toggleIconSelection(flagName);
-      // Also update the preview to show the clicked icon
-      setSelectedIcon(flagName);
-      const svgUrlToSet = `${backendUrl}/flags/${flagName}.svg`;
-      setSvgUrl(svgUrlToSet);
-      loadGroups(flagName, "flags");
       return;
     }
     
@@ -1179,55 +917,62 @@ function App() {
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`} 
          style={{
            backgroundImage: darkMode 
-             ? 'linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url(/icons2.jpg)' 
-             : 'linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url(/icons2.jpg)',
+             ? 'linear-gradient(rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.84)), url(/icons2.jpg)' 
+             : 'linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), url(/icons2.jpg)',
            backgroundSize: 'cover',
            backgroundPosition: 'center',
            backgroundAttachment: 'fixed'
          }}>
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className={`flex justify-between items-center mb-8 p-10 rounded-xl shadow-lg max-w-6xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-          <div>
-            <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-              Icon Manager
-            </h1>
-            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Manage and customize your icons</p>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-lg transition ${darkMode ? 'bg-[#2E5583] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-              >
-                {darkMode ? '☀️' : '🌙'}
-              </button>
-              
-              {/* Multi-select toggle */}
-              <button
-                onClick={toggleMultiSelectMode}
-                className={`p-2 rounded-lg transition ${
-                  isMultiSelectMode 
-                    ? 'bg-blue-600 text-white' 
-                    : darkMode 
-                      ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-                title={isMultiSelectMode ? "Exit Multi-Select Mode" : "Enter Multi-Select Mode"}
-              >
-                {isMultiSelectMode ? '✕' : '☑️'}
-              </button>
-              
-              {/* Selection count */}
-              {isMultiSelectMode && getSelectedCount() > 0 && (
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  darkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {getSelectedCount()} selected
-                </span>
-              )}
+        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-10 rounded-xl shadow-lg max-w-6xl mx-auto mb-8`}>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                Icon Manager
+              </h1>
+              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Manage and customize your icons</p>
             </div>
-            <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>© 2025</div>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={`p-2 rounded-lg transition ${darkMode ? 'bg-[#2E5583] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  {darkMode ? '☀️' : '🌙'}
+                </button>
+                
+                {/* Multi-select toggle */}
+                <button
+                  onClick={toggleMultiSelectMode}
+                  className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
+                    isMultiSelectMode 
+                      ? 'bg-blue-600 text-white' 
+                      : darkMode 
+                        ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                  title={isMultiSelectMode ? "Exit Multi-Select Mode" : "Enter Multi-Select Mode"}
+                >
+                  <img 
+                    src="/multiple_choice.svg" 
+                    alt="Multi-Selection" 
+                    className="w-5 h-5"
+                  />
+                  <span className="text-sm font-medium">Multi-Selection</span>
+                </button>
+                
+                {/* Selection count */}
+                {isMultiSelectMode && getSelectedCount() > 0 && (
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    darkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {getSelectedCount()} selected
+                  </span>
+                )}
+              </div>
+              <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>© 2025</div>
+            </div>
           </div>
         </div>
 
@@ -1433,16 +1178,11 @@ function App() {
             </div>
           </div>
 
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[400px] flex-shrink-0`}>
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[450px] flex-shrink-0`}>
             <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
               {activeTab === "colorful-icons" ? "Colorful Icon Options" : "Color Change"}
             </h3>
-            {activeTab !== "colorful-icons" && (
-              <p className={`text-sm mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Choose Group to Change the Color of
-              </p>
-            )}
-            {selectedIcon || selectedCountry || (isMultiSelectMode && activeTab === "icons") ? (
+            {selectedIcon || selectedCountry ? (
               activeTab === "flags" ? (
                 // Flag selection interface
                 <div className="flex flex-col gap-3">
@@ -1485,7 +1225,7 @@ function App() {
                     onClick={exportSvg}
                     className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
                   >
-                    {isMultiSelectMode && getSelectedCount() > 0 ? `Export ${getSelectedCount()} SVGs` : "Export SVG"}
+                    Export SVG
                   </button>
                 </div>
               ) : activeTab === "colorful-icons" ? (
@@ -1494,30 +1234,20 @@ function App() {
                   <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>
                     Selected: {selectedIcon}
                   </div>
-                  {!isMultiSelectMode && (
-                    <>
-                      <button
-                        onClick={convertToGreyscale}
-                        disabled={loading}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'}`}
-                      >
-                        {loading ? "Converting..." : "Convert to Greyscale"}
-                      </button>
-                      <button
-                        onClick={revertToColor}
-                        disabled={loading || !greyscaleIcons.has(selectedIcon)}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${
-                          loading || !greyscaleIcons.has(selectedIcon)
-                            ? 'bg-gray-400 cursor-not-allowed text-gray-600'
-                            : darkMode 
-                              ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                              : 'hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {loading ? "Reverting..." : "Revert to Color"}
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={convertToGreyscale}
+                    disabled={loading}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'}`}
+                  >
+                    {loading ? "Converting..." : "Convert to Greyscale"}
+                  </button>
+                  <button
+                    onClick={revertToColor}
+                    disabled={loading}
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-gray-100 text-gray-700'}`}
+                  >
+                    {loading ? "Reverting..." : "Revert to Color"}
+                  </button>
                   
                   {/* Multi-select actions for colorful icons */}
                   {isMultiSelectMode && selectedColorfulIcons.size > 0 && (
@@ -1541,9 +1271,9 @@ function App() {
                         </button>
                         <button
                           onClick={revertMultipleToColor}
-                          disabled={loading || !Array.from(selectedColorfulIcons).some(icon => greyscaleIcons.has(icon))}
+                          disabled={loading}
                           className={`px-4 py-2 rounded-lg transition ${
-                            loading || !Array.from(selectedColorfulIcons).some(icon => greyscaleIcons.has(icon))
+                            loading 
                               ? 'bg-gray-400 cursor-not-allowed' 
                               : darkMode 
                                 ? 'bg-blue-600 text-white hover:bg-blue-700' 
@@ -1560,7 +1290,7 @@ function App() {
               ) : (
                 // Icon groups interface
                 <div className="flex flex-col gap-3">
-                  {(groups.length > 0 ? groups : (isMultiSelectMode ? ["Color", "Grey"] : [])).map((group, idx) => (
+                  {groups.map((group, idx) => (
                     <button
                       key={idx}
                       className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${selectedGroup === group ? 'bg-green-600 text-white font-semibold' : darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
@@ -1577,30 +1307,30 @@ function App() {
                       </h4>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => applyColorToMultipleIcons("Grey", currentColor)}
-                          disabled={loading || selectedGroup === "Color"}
+                          onClick={() => applyColorToMultipleIcons("Grey", "#808080")}
+                          disabled={loading}
                           className={`px-4 py-2 rounded-lg transition ${
-                            loading || selectedGroup === "Color"
+                            loading 
                               ? 'bg-gray-400 cursor-not-allowed' 
                               : darkMode 
-                                ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                                : 'bg-blue-500 text-white hover:bg-blue-600'
+                                ? 'bg-gray-600 text-white hover:bg-gray-700' 
+                                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
                           }`}
                         >
-                          {loading ? 'Applying...' : 'Apply Grey Group Color'}
+                          {loading ? 'Applying...' : 'Apply Grey'}
                         </button>
                         <button
-                          onClick={() => applyColorToMultipleIcons("Color", currentColor)}
-                          disabled={loading || selectedGroup === "Grey"}
+                          onClick={() => applyColorToMultipleIcons("Color", "#000000")}
+                          disabled={loading}
                           className={`px-4 py-2 rounded-lg transition ${
-                            loading || selectedGroup === "Grey"
+                            loading 
                               ? 'bg-gray-400 cursor-not-allowed' 
                               : darkMode 
                                 ? 'bg-blue-600 text-white hover:bg-blue-700' 
                                 : 'bg-blue-500 text-white hover:bg-blue-600'
                           }`}
                         >
-                          {loading ? 'Applying...' : 'Apply Color Group Color'}
+                          {loading ? 'Applying...' : 'Apply Color'}
                         </button>
                       </div>
                     </div>
@@ -1614,10 +1344,10 @@ function App() {
             )}
 
             {/* Color Picker */}
-            {(selectedGroup && activeTab === "icons") || (isMultiSelectMode && activeTab === "icons") ? (
+            {selectedGroup && activeTab === "icons" && (
               <div className="mt-6">
                 <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Bcore Colors
+                  Color Picker
                 </h4>
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   {companyColors.map((color) => (
@@ -1652,9 +1382,9 @@ function App() {
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => applyColorChange(currentColor)}
-                    disabled={loading || isMultiSelectMode}
+                    disabled={loading}
                     className={`px-4 py-2 rounded-lg transition ${
-                      loading || isMultiSelectMode
+                      loading 
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : darkMode 
                           ? 'bg-blue-600 text-white hover:bg-blue-700' 
@@ -1678,7 +1408,7 @@ function App() {
                   </button>
                 </div>
               </div>
-            ) : null}
+            )}
 
             {/* Export Options */}
             {selectedIcon && activeTab !== "flags" && (
@@ -1691,13 +1421,13 @@ function App() {
                     onClick={exportSvg}
                     className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
                   >
-                    {isMultiSelectMode && getSelectedCount() > 0 ? `Export ${getSelectedCount()} SVGs` : "Export SVG"}
+                    Export SVG
                   </button>
                   <button
                     onClick={exportPng}
                     className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
                   >
-                    {isMultiSelectMode && getSelectedCount() > 0 ? `Export ${getSelectedCount()} PNGs` : "Export PNG"}
+                    Export PNG
                   </button>
                 </div>
               </div>
@@ -1709,91 +1439,17 @@ function App() {
             <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
               Preview
             </h3>
-            {isMultiSelectMode && getSelectedCount() > 0 ? (
-              // Multi-select preview - grid of small icons
-              <div className="h-64 overflow-y-auto">
-                <div className="grid grid-cols-4 gap-3">
-                  {(() => {
-                    let selectedItems = [];
-                    if (activeTab === "icons") {
-                      selectedItems = Array.from(selectedIcons);
-                    } else if (activeTab === "colorful-icons") {
-                      selectedItems = Array.from(selectedColorfulIcons);
-                    } else if (activeTab === "flags") {
-                      selectedItems = Array.from(selectedFlags);
-                    }
-                    
-                    return selectedItems.map((itemName, index) => {
-                      let iconUrl;
-                      if (activeTab === "flags") {
-                        iconUrl = `${backendUrl}/flags/${getFlagFilename(itemName, flagType)}?t=${Date.now()}`;
-                      } else if (activeTab === "colorful-icons") {
-                        const folderPath = currentFolder || "Root";
-                        iconUrl = folderPath === "Root" 
-                          ? `${backendUrl}/colorful-icons/${itemName}.svg?t=${Date.now()}`
-                          : `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg?t=${Date.now()}`;
-                      } else {
-                        const folderPath = currentFolder || "Root";
-                        iconUrl = folderPath === "Root" 
-                          ? `${backendUrl}/static/${itemName}.svg?t=${Date.now()}`
-                          : `${backendUrl}/static-icons/${folderPath}/${itemName}.svg?t=${Date.now()}`;
-                      }
-                      
-                      return (
-                        <div key={`${itemName}-${Date.now()}`} className="flex flex-col items-center">
-                          <div className={`w-24 h-24 rounded-lg border border-gray-200 flex items-center justify-center p-2 ${darkMode ? 'bg-transparent' : 'bg-gray-50'}`}>
-                            <img
-                              src={iconUrl}
-                              alt={itemName}
-                              className="max-w-full max-h-full object-contain"
-                              onError={(e) => {
-                                console.error('Failed to load icon:', itemName, e);
-                                e.target.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                          <div className={`text-xs mt-1 text-center truncate w-full ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                            {itemName}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-            ) : svgUrl ? (
-              // Single icon preview
-              <div className={`flex items-center justify-center h-64 rounded-lg ${darkMode ? 'bg-transparent' : 'bg-gray-50'}`}>
+            {svgUrl ? (
+              <div className="flex items-center justify-center h-64 rounded-lg">
                 <img
-                  key={svgUrl}
                   src={svgUrl}
                   alt="Icon Preview"
                   className="max-w-full max-h-full object-contain"
-                  onLoad={() => console.log('Image loaded successfully:', svgUrl)}
-                  onError={(e) => console.error('Image failed to load:', svgUrl, e)}
                 />
               </div>
             ) : (
-              // No selection message
-              <div className={`flex items-center justify-center h-64 rounded-lg ${darkMode ? 'bg-transparent text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
-                {isMultiSelectMode && activeTab === "icons" ? (
-                  <div className="text-center">
-                    <div className="text-lg mb-2">Multi-Select Mode</div>
-                    <div className="text-sm">Select icons from the list to see them in preview</div>
-                  </div>
-                ) : isMultiSelectMode && activeTab === "colorful-icons" ? (
-                  <div className="text-center">
-                    <div className="text-lg mb-2">Multi-Select Mode</div>
-                    <div className="text-sm">Select colorful icons to see them in preview</div>
-                  </div>
-                ) : isMultiSelectMode && activeTab === "flags" ? (
-                  <div className="text-center">
-                    <div className="text-lg mb-2">Multi-Select Mode</div>
-                    <div className="text-sm">Select flags to see them in preview</div>
-                  </div>
-                ) : (
-                  "Select an icon to preview"
-                )}
+              <div className={`flex items-center justify-center h-64 rounded-lg ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Select an icon to preview
               </div>
             )}
           </div>
