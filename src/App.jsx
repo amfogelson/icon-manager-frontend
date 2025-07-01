@@ -45,6 +45,7 @@ function App() {
   const [allFeedback, setAllFeedback] = useState([]);
   const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN === 'true'); // Only true if you set the env var
 
+
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
   useEffect(() => {
@@ -224,7 +225,7 @@ function App() {
     setLocalPreviewColor(currentColor);
   };
 
-  const applyColorChange = useCallback((colorToApply) => {
+  const applyColorChange = useCallback((colorToApply, showToast = true) => {
     if (activeTab === "flags") {
       // For flags, apply color to the entire SVG
       setLoading(true);
@@ -239,11 +240,15 @@ function App() {
         const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
         setSvgUrl(`${baseUrl}/${selectedIcon}?t=${Date.now()}`);
         setLoading(false);
-        toast.success("Color updated");
+        if (showToast) {
+          toast.success("Color updated");
+        }
       }).catch(err => {
         console.error(err);
         setLoading(false);
-        toast.error("Failed to update color.");
+        if (showToast) {
+          toast.error("Failed to update color.");
+        }
       });
     } else {
       // For icons, apply color to specific group
@@ -273,11 +278,15 @@ function App() {
           setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
         }
         setLoading(false);
-        toast.success("Color updated");
+        if (showToast) {
+          toast.success("Color updated");
+        }
       }).catch(err => {
         console.error(err);
         setLoading(false);
-        toast.error("Failed to update color.");
+        if (showToast) {
+          toast.error("Failed to update color.");
+        }
       });
     }
   }, [selectedIcon, selectedGroup, activeTab, currentFolder]);
@@ -290,9 +299,23 @@ function App() {
     if (debounceTimer) clearTimeout(debounceTimer);
 
     debounceTimer = setTimeout(() => {
-      applyColorChange(hex);
+      applyColorChange(hex, false); // Don't show toast during sliding
     }, 500); // still debounce backend call
   };
+
+  const handleColorInputChange = (e) => {
+    const hex = e.target.value;
+    setCurrentColor(hex);
+    setLocalPreviewColor(hex);
+
+    if (debounceTimer) clearTimeout(debounceTimer);
+
+    debounceTimer = setTimeout(() => {
+      applyColorChange(hex, false); // Don't show toast during typing
+    }, 500);
+  };
+
+
 
   const exportSvg = async () => {
     try {
@@ -664,7 +687,7 @@ function App() {
   const selectCompanyColor = (color) => {
     setCurrentColor(color);
     setLocalPreviewColor(color);
-    applyColorChange(color);
+    applyColorChange(color, true); // Show toast for company color selection
   };
 
   // Company colors - customize these with your actual brand colors
@@ -2141,13 +2164,13 @@ function App() {
                   <input
                     type="color"
                     value={currentColor}
-                    onChange={(e) => !isMultiSelectMode ? selectCompanyColor(e.target.value) : setCurrentColor(e.target.value)}
+                    onChange={handleColorInputChange}
                     className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={currentColor}
-                    onChange={(e) => !isMultiSelectMode ? selectCompanyColor(e.target.value) : setCurrentColor(e.target.value)}
+                    onChange={handleColorInputChange}
                     className={`flex-1 px-3 py-2 border border-gray-300 rounded ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-900'}`}
                     placeholder="#000000"
                   />
