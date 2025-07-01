@@ -44,7 +44,8 @@ function App() {
   const [showFeedbackAdmin, setShowFeedbackAdmin] = useState(false);
   const [allFeedback, setAllFeedback] = useState([]);
   const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN === 'true'); // Only true if you set the env var
-
+  const [showLlama, setShowLlama] = useState(false);
+  const llamaTimeoutRef = React.useRef(null);
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
@@ -1405,6 +1406,12 @@ function App() {
     }
   };
 
+  const triggerLlama = () => {
+    setShowLlama(true);
+    if (llamaTimeoutRef.current) clearTimeout(llamaTimeoutRef.current);
+    llamaTimeoutRef.current = setTimeout(() => setShowLlama(false), 3000);
+  };
+
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`} 
          style={{
@@ -1543,7 +1550,14 @@ function App() {
                 Icons
               </button>
               <button
-                onClick={() => handleTabChange("colorful-icons")}
+                onClick={e => {
+                  if (e.ctrlKey && e.shiftKey) {
+                    triggerLlama();
+                    e.preventDefault();
+                    return;
+                  }
+                  handleTabChange("colorful-icons");
+                }}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "colorful-icons"
                     ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
@@ -2589,6 +2603,27 @@ function App() {
               )}
             </div>
           </div>
+        </div>
+      )}
+      {showLlama && (
+        <div
+          onClick={() => setShowLlama(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            cursor: 'pointer',
+          }}
+          title="Click to dismiss"
+        >
+          <img src="/llama.gif" alt="Llama!" style={{ maxWidth: '80vw', maxHeight: '80vh', borderRadius: '16px', boxShadow: '0 4px 32px #0008' }} />
         </div>
       )}
     </div>
