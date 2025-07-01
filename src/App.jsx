@@ -1210,19 +1210,19 @@ function App() {
     setSelectedIcon(result.name);
     setCurrentFolder(result.folder);
     
-    // Set the appropriate SVG URL based on the result type
+    // Set the appropriate SVG URL based on the active tab
     let svgUrlToSet;
-    if (result.type === 'icon') {
+    if (activeTab === "icons") {
       svgUrlToSet = result.folder === "Root" 
         ? `${backendUrl}/static/${result.name}.svg`
         : `${backendUrl}/static-icons/${result.folder}/${result.name}.svg`;
       loadGroups(result.name, result.folder);
-    } else if (result.type === 'colorful-icon') {
+    } else if (activeTab === "colorful-icons") {
       svgUrlToSet = result.folder === "Root" 
         ? `${backendUrl}/colorful-icons/${result.name}.svg`
         : `${backendUrl}/colorful-icons/${result.folder}/${result.name}.svg`;
       setIsGreyscale(false); // Reset greyscale state for colorful icon
-    } else if (result.type === 'flag') {
+    } else if (activeTab === "flags") {
       svgUrlToSet = `${backendUrl}/flags/${result.name}.svg`;
       loadGroups(result.name, "flags");
     }
@@ -1711,7 +1711,101 @@ function App() {
                   )}
                 </>
               )}
-              {activeTab === "flags" && getCountryNames().map(item => (
+              
+              {/* Global Search Results for Icons and Colorful Icons */}
+              {(activeTab === "icons" || activeTab === "colorful-icons") && !currentFolder && searchTerm && (
+                <>
+                  <button
+                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                    onClick={() => setSearchTerm("")}>
+                    ← Clear Search
+                  </button>
+                  {iconListView === "list" ? (
+                    filteredItems.map(item => (
+                      <button
+                        key={`${item.name}-${item.folder}`}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
+                          isMultiSelectMode 
+                            ? (activeTab === "icons" && selectedIcons && selectedIcons.has(item.name)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item.name))
+                              ? 'bg-blue-600 text-white font-semibold border-blue-600'
+                              : darkMode 
+                                ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
+                                : 'hover:bg-blue-100 text-gray-700'
+                            : selectedIcon === item.name 
+                              ? 'bg-[#2E5583] text-white font-semibold' 
+                              : darkMode 
+                                ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
+                                : 'hover:bg-blue-100 text-gray-700'
+                        }`}
+                        onClick={() => handleSearchResultClick(item)}>
+                        <span>{item.name} <span className="text-xs opacity-70">({item.folder})</span></span>
+                        {isMultiSelectMode && (
+                          <span className="ml-2">
+                            {(activeTab === "icons" && selectedIcons && selectedIcons.has(item.name)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item.name))
+                              ? '☑️'
+                              : '☐'
+                            }
+                          </span>
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3">
+                      {filteredItems.map(item => {
+                        let iconUrl;
+                        if (activeTab === "colorful-icons") {
+                          iconUrl = item.folder === "Root" 
+                            ? `${backendUrl}/colorful-icons/${item.name}.svg?t=${Date.now()}`
+                            : `${backendUrl}/colorful-icons/${item.folder}/${item.name}.svg?t=${Date.now()}`;
+                        } else {
+                          iconUrl = item.folder === "Root" 
+                            ? `${backendUrl}/static/${item.name}.svg?t=${Date.now()}`
+                            : `${backendUrl}/static-icons/${item.folder}/${item.name}.svg?t=${Date.now()}`;
+                        }
+                        return (
+                          <button
+                            key={`${item.name}-${item.folder}`}
+                            className={`flex flex-col items-center p-2 rounded-lg border transition w-full h-28 justify-center ${
+                              isMultiSelectMode 
+                                ? (activeTab === "icons" && selectedIcons && selectedIcons.has(item.name)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item.name))
+                                  ? 'bg-blue-600 text-white font-semibold border-blue-600'
+                                  : darkMode 
+                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
+                                    : 'hover:bg-blue-100 text-gray-700'
+                                : selectedIcon === item.name 
+                                  ? 'bg-[#2E5583] text-white font-semibold' 
+                                  : darkMode 
+                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
+                                    : 'hover:bg-blue-100 text-gray-700'
+                            }`}
+                            onClick={() => handleSearchResultClick(item)}
+                          >
+                            <img
+                              src={iconUrl}
+                              alt={item.name}
+                              className="w-12 h-12 object-contain mb-1"
+                              onError={e => e.target.style.display = 'none'}
+                            />
+                            <span className="text-xs truncate w-full text-center">{item.name}</span>
+                            <span className="text-xs opacity-70">({item.folder})</span>
+                            {isMultiSelectMode && (
+                              <span className="ml-2">
+                                {(activeTab === "icons" && selectedIcons && selectedIcons.has(item.name)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item.name))
+                                  ? '☑️'
+                                  : '☐'
+                                }
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+              
+              {/* Flags */}
+              {activeTab === "flags" && filteredItems.map(item => (
                 <button
                   key={item}
                   className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
@@ -1801,6 +1895,12 @@ function App() {
                       >
                         Export PNG
                       </button>
+                      <button
+                        onClick={handleCopyAsImage}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
+                      >
+                        Copy to Clipboard
+                      </button>
                     </div>
                   )}
                   
@@ -1810,7 +1910,7 @@ function App() {
                       <h4 className={`text-md font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         Apply to {selectedFlags.size} selected flags:
                       </h4>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={exportMultipleSvg}
                           disabled={loading}
@@ -1836,6 +1936,32 @@ function App() {
                           }`}
                         >
                           {loading ? 'Exporting...' : 'Export PNGs'}
+                        </button>
+                        <button
+                          onClick={() => exportAsZip("svg")}
+                          disabled={loading}
+                          className={`px-4 py-2 rounded-lg transition ${
+                            loading 
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : darkMode 
+                                ? 'bg-green-600 text-white hover:bg-green-700' 
+                                : 'bg-green-500 text-white hover:bg-green-600'
+                          }`}
+                        >
+                          {loading ? 'Exporting...' : 'Export as ZIP (SVG)'}
+                        </button>
+                        <button
+                          onClick={() => exportAsZip("png")}
+                          disabled={loading}
+                          className={`px-4 py-2 rounded-lg transition ${
+                            loading 
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : darkMode 
+                                ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                                : 'bg-purple-500 text-white hover:bg-purple-600'
+                          }`}
+                        >
+                          {loading ? 'Exporting...' : 'Export as ZIP (PNG)'}
                         </button>
                       </div>
                     </div>
@@ -2093,58 +2219,7 @@ function App() {
               </div>
             )}
 
-            {/* Export Options for Flags */}
-            {((selectedCountry && !isMultiSelectMode) || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && activeTab === "flags")) && activeTab === "flags" && (
-              <div className="mt-6">
-                {!isMultiSelectMode && (
-                  <>
-                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      Export Options
-                    </h4>
-                  </>
-                )}
-                <div className="flex gap-2 flex-wrap">
-                  {!isMultiSelectMode && (
-                    <>
-                      <button
-                        onClick={exportSvg}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
-                      >
-                        Export SVG
-                      </button>
-                      <button
-                        onClick={exportPng}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
-                      >
-                        Export PNG
-                      </button>
-                      <button
-                        onClick={handleCopyAsImage}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
-                      >
-                        Copy to Clipboard
-                      </button>
-                    </>
-                  )}
-                  {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && (
-                    <>
-                      <button
-                        onClick={() => exportAsZip("svg")}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
-                      >
-                        Export as ZIP (SVG)
-                      </button>
-                      <button
-                        onClick={() => exportAsZip("png")}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
-                      >
-                        Export as ZIP (PNG)
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+
           </div>
 
           {/* Right Panel - Preview */}
