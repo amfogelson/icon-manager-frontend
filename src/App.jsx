@@ -37,7 +37,7 @@ function App() {
   const [selectedColorfulIconsWithFolders, setSelectedColorfulIconsWithFolders] = useState(new Map());
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Toggle multi-select mode
   const [isGreyscale, setIsGreyscale] = useState(false); // Track if current icon is greyscale
-  const [iconListView, setIconListView] = useState("list"); // 'list' or 'grid'
+  const [iconListView, setIconListView] = useState("grid"); // 'list' or 'grid'
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState("New Addition");
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -517,6 +517,67 @@ function App() {
     } catch (error) {
       console.error('Error downloading multiple PNGs:', error);
       toast.error("Failed to download PNGs");
+    }
+  };
+
+  const exportAsZip = async (format = "svg") => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      let selectedItems = [];
+      if (activeTab === "icons") {
+        selectedItems = Array.from(selectedIcons || []);
+      } else if (activeTab === "colorful-icons") {
+        selectedItems = Array.from(selectedColorfulIcons || []);
+      } else if (activeTab === "flags") {
+        selectedItems = Array.from(selectedFlags || []);
+      }
+      
+      if (selectedItems.length === 0) {
+        toast.error("No items selected for export");
+        return;
+      }
+      
+      const folderPath = currentFolder || "Root";
+      
+      // Determine the type for the backend
+      let type;
+      if (activeTab === "flags") {
+        type = "flag";
+      } else if (activeTab === "colorful-icons") {
+        type = "colorful-icon";
+      } else {
+        type = "icon";
+      }
+      
+      const requestData = {
+        items: selectedItems,
+        type: type,
+        folder: folderPath,
+        format: format
+      };
+      
+      const response = await axios.post(`${backendUrl}/export-zip`, requestData, {
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `icons_${format}_${Date.now()}.zip`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`ZIP file with ${selectedItems.length} ${format.toUpperCase()} files downloaded successfully!`);
+    } catch (error) {
+      console.error('Error downloading ZIP:', error);
+      toast.error("Failed to download ZIP file");
     }
   };
 
@@ -1191,48 +1252,130 @@ function App() {
 
   const handleCopyAsImage = async () => {
     try {
-      let url = svgUrl;
-      if (!url) {
+      if (!svgUrl) {
         toast.error("No SVG to copy as image");
         return;
       }
-      const response = await fetch(url);
+
+      console.log('Copy as image - URL:', svgUrl);
+
+      // Check if clipboard API is supported
+      if (!navigator.clipboard || !navigator.clipboard.write) {
+        toast.error("Clipboard API not supported in this browser");
+        return;
+      }
+
+      console.log('Clipboard API supported, fetching SVG...');
+      
+      // Use the new CORS-enabled endpoint instead of direct URL
+      let corsUrl;
+      if (activeTab === "flags" && selectedCountry) {
+        corsUrl = `${backendUrl}/svg/flag/Root/${getFlagFilename(selectedCountry, flagType)}`;
+      } else if (activeTab === "colorful-icons") {
+        const folderPath = currentFolder || "Root";
+        corsUrl = `${backendUrl}/svg/colorful-icon/${folderPath}/${selectedIcon}.svg`;
+      } else {
+        const folderPath = currentFolder || "Root";
+        corsUrl = `${backendUrl}/svg/icon/${folderPath}/${selectedIcon}.svg`;
+      }
+      
+      console.log('Using CORS-enabled URL:', corsUrl);
+      const response = await fetch(corsUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch SVG: ${response.status}`);
+      }
+      
       const svgText = await response.text();
+      console.log('SVG fetched, length:', svgText.length);
+      
       // Create an image from SVG
-      const img = new window.Image();
+      const img = new Image();
       const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
       const urlObj = URL.createObjectURL(svgBlob);
-      img.src = urlObj;
-      img.onload = async () => {
-        try {
-          // Create a canvas with the same size as the SVG image
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width || 512;
-          canvas.height = img.height || 512;
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // Convert canvas to blob
-          canvas.toBlob(async (blob) => {
-            try {
-              if (!blob) throw new Error('Failed to create PNG blob');
-              await navigator.clipboard.write([
-                new window.ClipboardItem({ 'image/png': blob })
-              ]);
-              toast.success('Image copied to clipboard!');
-            } catch (err) {
-              console.error('Clipboard write failed:', err);
-              toast.error('Failed to copy image');
+      
+      return new Promise((resolve, reject) => {
+        img.onload = async () => {
+          try {
+            // Create a canvas that maintains the SVG's aspect ratio
+            const canvas = document.createElement('canvas');
+            const maxSize = 512; // Maximum dimension
+            
+            // Calculate dimensions to maintain aspect ratio
+            const aspectRatio = img.width / img.height;
+            let canvasWidth, canvasHeight;
+            
+            if (aspectRatio > 1) {
+              // Width is greater than height
+              canvasWidth = maxSize;
+              canvasHeight = maxSize / aspectRatio;
+            } else {
+              // Height is greater than or equal to width
+              canvasHeight = maxSize;
+              canvasWidth = maxSize * aspectRatio;
             }
-          }, 'image/png');
-        } finally {
+            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              throw new Error('Failed to get canvas context');
+            }
+            
+            // Clear the canvas (transparent background)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw the SVG image maintaining aspect ratio
+            ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+            
+            // Convert canvas to blob
+            canvas.toBlob(async (blob) => {
+              try {
+                if (!blob) {
+                  throw new Error('Failed to create PNG blob');
+                }
+                
+                // Try to write to clipboard
+                await navigator.clipboard.write([
+                  new ClipboardItem({ 'image/png': blob })
+                ]);
+                
+                toast.success('Image copied to clipboard!');
+                resolve();
+              } catch (clipboardError) {
+                console.error('Clipboard write failed:', clipboardError);
+                
+                // Fallback: try to copy as data URL
+                try {
+                  const dataUrl = canvas.toDataURL('image/png');
+                  await navigator.clipboard.writeText(dataUrl);
+                  toast.success('Image data URL copied to clipboard!');
+                  resolve();
+                } catch (fallbackError) {
+                  console.error('Fallback copy failed:', fallbackError);
+                  toast.error('Failed to copy image - browser may not support image copying');
+                  reject(fallbackError);
+                }
+              }
+            }, 'image/png', 1.0);
+          } catch (error) {
+            console.error('Canvas processing error:', error);
+            toast.error('Failed to process image');
+            reject(error);
+          } finally {
+            URL.revokeObjectURL(urlObj);
+          }
+        };
+        
+        img.onerror = (e) => {
           URL.revokeObjectURL(urlObj);
-        }
-      };
-      img.onerror = (e) => {
-        URL.revokeObjectURL(urlObj);
-        toast.error('Failed to load SVG for image copy');
-      };
+          console.error('Failed to load SVG for image copy:', e);
+          toast.error('Failed to load SVG for image copy');
+          reject(e);
+        };
+        
+        img.src = urlObj;
+      });
     } catch (error) {
       console.error('Error copying as image:', error);
       toast.error('Failed to copy as image');
@@ -1909,7 +2052,7 @@ function App() {
                 <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Export Options
                 </h4>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={isMultiSelectMode ? exportMultipleSvg : exportSvg}
                     className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
@@ -1922,6 +2065,22 @@ function App() {
                   >
                     {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} PNGs` : "Export PNG"}
                   </button>
+                  {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && (
+                    <>
+                      <button
+                        onClick={() => exportAsZip("svg")}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                      >
+                        Export as ZIP (SVG)
+                      </button>
+                      <button
+                        onClick={() => exportAsZip("png")}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                      >
+                        Export as ZIP (PNG)
+                      </button>
+                    </>
+                  )}
                   {!isMultiSelectMode && (
                     <button
                       onClick={handleCopyAsImage}
@@ -1944,7 +2103,7 @@ function App() {
                     </h4>
                   </>
                 )}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {!isMultiSelectMode && (
                     <>
                       <button
@@ -1964,6 +2123,22 @@ function App() {
                         className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
                       >
                         Copy to Clipboard
+                      </button>
+                    </>
+                  )}
+                  {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && (
+                    <>
+                      <button
+                        onClick={() => exportAsZip("svg")}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                      >
+                        Export as ZIP (SVG)
+                      </button>
+                      <button
+                        onClick={() => exportAsZip("png")}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                      >
+                        Export as ZIP (PNG)
                       </button>
                     </>
                   )}

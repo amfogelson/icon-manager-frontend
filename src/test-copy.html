@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Test</title>
+</head>
+<body>
+    <h1>Copy Image Test</h1>
+    <button onclick="testCopy()">Test Copy Image</button>
+    <div id="status"></div>
+
+    <script>
+        function log(message) {
+            console.log(message);
+            document.getElementById('status').innerHTML += '<p>' + message + '</p>';
+        }
+
+        async function testCopy() {
+            try {
+                log('Testing clipboard API support...');
+                
+                if (!navigator.clipboard) {
+                    log('❌ navigator.clipboard not supported');
+                    return;
+                }
+                
+                if (!navigator.clipboard.write) {
+                    log('❌ navigator.clipboard.write not supported');
+                    return;
+                }
+                
+                log('✅ Clipboard API supported');
+                
+                // Create a simple test image
+                const canvas = document.createElement('canvas');
+                canvas.width = 100;
+                canvas.height = 100;
+                const ctx = canvas.getContext('2d');
+                
+                // Draw a simple red square
+                ctx.fillStyle = 'red';
+                ctx.fillRect(0, 0, 100, 100);
+                
+                log('✅ Canvas created successfully');
+                
+                // Convert to blob
+                canvas.toBlob(async (blob) => {
+                    if (!blob) {
+                        log('❌ Failed to create blob');
+                        return;
+                    }
+                    
+                    log('✅ Blob created successfully');
+                    
+                    try {
+                        await navigator.clipboard.write([
+                            new ClipboardItem({ 'image/png': blob })
+                        ]);
+                        log('✅ Image copied to clipboard successfully!');
+                    } catch (error) {
+                        log('❌ Clipboard write failed: ' + error.message);
+                        
+                        // Try fallback
+                        try {
+                            const dataUrl = canvas.toDataURL('image/png');
+                            await navigator.clipboard.writeText(dataUrl);
+                            log('✅ Data URL copied to clipboard as fallback');
+                        } catch (fallbackError) {
+                            log('❌ Fallback also failed: ' + fallbackError.message);
+                        }
+                    }
+                }, 'image/png');
+                
+            } catch (error) {
+                log('❌ Test failed: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html> 
