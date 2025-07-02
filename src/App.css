@@ -1,8 +1,26 @@
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-image: url('/incons2.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+  min-width: 100vw;
+}
+
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  min-height: 100vh;
+  min-width: 100vw;
+  padding: 0;
   text-align: center;
+  display: flex;
+  flex-direction: column;
 }
 
 .logo {

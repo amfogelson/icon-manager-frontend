@@ -1,0 +1,26 @@
+[
+  {
+    "filename": "Picture1.png",
+    "title": "4 Diamonds",
+    "slide_number": 1,
+    "category": "Business2"
+  },
+  {
+    "filename": "Picture2.png",
+    "title": "12 Squares",
+    "slide_number": 2,
+    "category": "Business"
+  },
+  {
+    "filename": "Picture3.png",
+    "title": "Dual 4x2 Rectangles",
+    "slide_number": 3,
+    "category": "Business"
+  },
+  {
+    "filename": "3-Panel.png",
+    "title": "3 Panel",
+    "slide_number": 4,
+    "category": "Business"
+  }
+]

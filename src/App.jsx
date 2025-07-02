@@ -4,8 +4,38 @@ import { ReactSVG } from 'react-svg';
 import { SketchPicker } from 'react-color';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { saveAs } from 'file-saver';
+import './App.css';
 
 let debounceTimer = null;
+
+// Add Navbar component at the top of the App function
+function Navbar({ activeTab, setActiveTab, setShowFeedbackModal, darkMode }) {
+  return (
+    <nav className={`w-full px-4 py-3 flex items-center justify-between shadow-md ${darkMode ? 'bg-gray-900' : 'bg-white'} mb-4`}>
+      <div className="flex items-center gap-6">
+        <button
+          className={`font-semibold text-lg transition-colors ${activeTab === 'icons' ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-white' : 'text-gray-700')}`}
+          onClick={() => setActiveTab('icons')}
+        >
+          Icons
+        </button>
+        <button
+          className={`font-semibold text-lg transition-colors ${activeTab === 'infographics' ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-white' : 'text-gray-700')}`}
+          onClick={() => setActiveTab('infographics')}
+        >
+          Infographics
+        </button>
+        <button
+          className={`font-semibold text-lg transition-colors ${darkMode ? 'text-white' : 'text-gray-700'} hover:text-blue-500`}
+          onClick={() => setShowFeedbackModal(true)}
+        >
+          Feedback
+        </button>
+      </div>
+    </nav>
+  );
+}
 
 function App() {
   console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
@@ -44,8 +74,31 @@ function App() {
   const [showFeedbackAdmin, setShowFeedbackAdmin] = useState(false);
   const [allFeedback, setAllFeedback] = useState([]);
   const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN === 'true'); // Only true if you set the env var
+  console.log('Admin state:', isAdmin);
+  console.log('VITE_IS_ADMIN env var:', import.meta.env.VITE_IS_ADMIN);
   const [showLlama, setShowLlama] = useState(false);
   const llamaTimeoutRef = React.useRef(null);
+  const [infographics, setInfographics] = useState([]);
+  const [infographicSearch, setInfographicSearch] = useState("");
+  const [selectedInfographic, setSelectedInfographic] = useState(null);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
+  const [showInfographicsAdmin, setShowInfographicsAdmin] = useState(false);
+  console.log('showInfographicsAdmin state:', showInfographicsAdmin);
+  
+  // State for managing categories
+  const [availableCategories, setAvailableCategories] = useState([
+    'Business', 'Business2', 'Technology', 'Military', 'HADR', 
+    'Infrastructure', 'Maritime', 'Drone'
+  ]);
+  
+  // State for upload form
+  const [uploadForm, setUploadForm] = useState({
+    filename: '',
+    title: '',
+    slideNumber: '',
+    category: ''
+  });
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
@@ -91,6 +144,11 @@ function App() {
     axios.get(`${backendUrl}/flags`)
       .then(res => setFlags(res.data.flags))
       .catch(err => console.error(err));
+    
+    // Fetch infographics list - COMMENTED OUT: Using mapping.json instead
+    // axios.get(`${backendUrl}/infographics`)
+    //   .then(res => setInfographics(res.data.infographics || []))
+    //   .catch(err => console.error(err));
   }, []);
 
   // Inject custom CSS for color picker dark mode
@@ -1412,16 +1470,649 @@ function App() {
     llamaTimeoutRef.current = setTimeout(() => setShowLlama(false), 3000);
   };
 
+  useEffect(() => {
+    fetch('/infographics/mapping.json')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setInfographics(data);
+        } else {
+          setInfographics([]);
+          console.error('mapping.json is not an array:', data);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load mapping.json:', err);
+        setInfographics([]);
+      });
+  }, []);
+
+  const categories = ['All', ...Array.from(new Set(infographics.filter(i => i && i.category).map(i => i.category)))];
+
+  const filtered = infographics.filter(i =>
+    (category === 'All' || i.category === category) &&
+    (typeof i.title === 'string' && i.title.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  // Infographics gallery and preview panel layout
+  if (activeTab === "infographics") {
+    return (
+      <div
+        className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}
+        style={{
+          backgroundImage: darkMode
+            ? 'linear-gradient(rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.84)), url(/icons2.jpg)'
+            : 'linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), url(/icons2.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} setShowFeedbackModal={setShowFeedbackModal} darkMode={darkMode} />
+        <div className="container mx-auto px-4 py-8">
+          {/* Header */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-10 rounded-xl shadow-lg max-w-6xl mx-auto mb-8`}>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <img src="/Icon Manager.svg" alt="Icon Manager Logo" className="w-10 h-10 mr-2" />
+                <div>
+                  <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Icon Manager</h1>
+                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Manage and customize your icons</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={`p-2 rounded-lg transition ${darkMode ? 'bg-[#2E5583] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  {darkMode ? '☀️' : '🌙'}
+                </button>
+                <button
+                  onClick={() => setShowFeedbackModal(true)}
+                  className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                  title="Submit Feedback"
+                >
+                  <span className="text-lg">💬</span>
+                  <span className="text-sm font-medium">Feedback</span>
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await axios.get(`${backendUrl}/feedback`);
+                        setAllFeedback(response.data.feedback || []);
+                        setShowFeedbackAdmin(true);
+                      } catch (error) {
+                        console.error('Error loading feedback:', error);
+                        toast.error("Failed to load feedback");
+                      }
+                    }}
+                    className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-500 text-white hover:bg-red-600'}`}
+                    title="View All Feedback (Admin)"
+                  >
+                    <span className="text-lg">📊</span>
+                    <span className="text-sm font-medium">View Feedback</span>
+                  </button>
+                )}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      console.log('Manage Infographics button clicked from infographics page');
+                      setShowInfographicsAdmin(true);
+                      console.log('showInfographicsAdmin set to true from infographics page');
+                    }}
+                    className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-green-500 text-white hover:bg-green-600'}`}
+                    title="Manage Infographics (Admin)"
+                  >
+                    <span className="text-lg">📁</span>
+                    <span className="text-sm font-medium">Manage Infographics</span>
+                  </button>
+                )}
+
+                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>© 2025</div>
+              </div>
+            </div>
+          </div>
+          {/* Main Content: Two Panels */}
+          <div className="flex gap-8">
+            {/* Left Panel - Infographics List */}
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[400px] flex-shrink-0`}>
+              <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>Infographics</h3>
+              {/* Search Input */}
+              <div className="mb-4">
+                {Array.isArray(categories) && categories.length > 0 ? (
+                  <>
+                    {console.log('Categories array:', categories)}
+                    <select
+                      value={category}
+                      onChange={e => setCategory(e.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg border transition-colors ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                    >
+                      {[...new Set(categories)].map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <select disabled className={`w-full px-3 py-2 rounded-lg border transition-colors ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
+                    <option>Loading categories...</option>
+                  </select>
+                )}
+              </div>
+              {/* Category Filter */}
+              {/* Thumbnails List */}
+              <div className="flex flex-col gap-3 max-h-[360px] overflow-y-auto">
+                {filtered.length === 0 && (
+                  <div className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No infographics found.</div>
+                )}
+                {filtered.map(i => (
+                  <button
+                    key={i.filename}
+                    className={`flex items-center gap-3 p-2 rounded-lg transition border border-gray-500 text-left ${selectedInfographic && selectedInfographic.filename === i.filename ? (darkMode ? 'bg-[#2E5583] text-white font-semibold border-[#2E5583]' : 'bg-blue-100 text-blue-800 font-semibold border-blue-600') : (darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700')}`}
+                    onClick={() => setSelectedInfographic(i)}
+                  >
+                    <img
+                      src={`/infographics/${i.filename}`}
+                      alt={i.title}
+                      className="w-16 h-16 object-contain rounded bg-gray-100"
+                      onError={e => {
+                        if (!e.target.src.includes('via.placeholder.com')) {
+                          e.target.onerror = null; // Prevent infinite loop
+                          e.target.src = 'https://via.placeholder.com/64x64?text=No+Image';
+                        }
+                      }}
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{i.title}</span>
+                      <span className="text-xs text-gray-400">Slide: {i.slide_number}</span>
+                      <span className="text-xs text-gray-400">Category: {i.category}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Right Panel - Preview */}
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} flex-1 p-8 shadow rounded-xl flex flex-col items-center justify-center`}>
+              {selectedInfographic ? (
+                <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
+                  <h2 className="text-2xl font-bold mb-4">{selectedInfographic.title}</h2>
+                  <img
+                    src={`/infographics/${selectedInfographic.filename}`}
+                    alt={selectedInfographic.title}
+                    className="w-full max-h-[400px] object-contain rounded bg-gray-100"
+                    onError={e => {
+                      if (!e.target.src.includes('via.placeholder.com')) {
+                        e.target.onerror = null; // Prevent infinite loop
+                        e.target.src = 'https://via.placeholder.com/400x200?text=No+Image';
+                      }
+                    }}
+                  />
+                  <div className="mt-4 text-lg">Slide: {selectedInfographic.slide_number}</div>
+                  <div className="text-sm text-gray-400 mb-4">Category: {selectedInfographic.category}</div>
+                  <a
+                    href="/infographics/infographics_master.pptx"
+                    download
+                    className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+                  >
+                    Download Master Infographics PPTX
+                  </a>
+                  <div className="mt-4 text-sm text-gray-500">
+                    <b>How to Jump to a Slide:</b> In PowerPoint, press <b>Ctrl+G</b>, enter the slide number, and press <b>Enter</b>.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-400 text-xl">Select an infographic to preview</div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Infographics Admin Modal - Inside Infographics Page */}
+        {showInfographicsAdmin && (
+          <>
+            {console.log('Rendering infographics admin modal from infographics page')}
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              style={{ zIndex: 9999 }}
+            >
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-6xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col`}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    Manage Infographics ({infographics.length})
+                  </h3>
+                  <button
+                    onClick={() => setShowInfographicsAdmin(false)}
+                    className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  >
+                    <span className="text-xl">✕</span>
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto">
+                  {/* Upload Section */}
+                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      Upload New Infographic
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            console.log('File selected:', file.name);
+                            setUploadForm(prev => ({ ...prev, filename: file.name }));
+                          }
+                        }}
+                        className={`px-3 py-2 rounded-lg border transition-colors ${
+                          darkMode 
+                            ? 'bg-gray-600 border-gray-500 text-white' 
+                            : 'bg-white border-gray-300 text-gray-900'
+                        }`}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Title"
+                        value={uploadForm.title}
+                        onChange={(e) => {
+                          setUploadForm(prev => ({ ...prev, title: e.target.value }));
+                        }}
+                        className={`px-3 py-2 rounded-lg border transition-colors ${
+                          darkMode 
+                            ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                        }`}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Slide Number"
+                        value={uploadForm.slideNumber}
+                        onChange={(e) => {
+                          setUploadForm(prev => ({ ...prev, slideNumber: e.target.value }));
+                        }}
+                        className={`px-3 py-2 rounded-lg border transition-colors ${
+                          darkMode 
+                            ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                        }`}
+                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={uploadForm.category}
+                          onChange={(e) => {
+                            setUploadForm(prev => ({ ...prev, category: e.target.value }));
+                          }}
+                          className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
+                            darkMode 
+                              ? 'bg-gray-600 border-gray-500 text-white' 
+                              : 'bg-white border-gray-300 text-gray-900'
+                          }`}
+                        >
+                          <option value="">Select Category</option>
+                          {availableCategories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => {
+                            const newCategory = prompt('Enter new category name:');
+                            if (newCategory && newCategory.trim()) {
+                              if (availableCategories.includes(newCategory)) {
+                                toast.error('Category already exists!');
+                              } else {
+                                setAvailableCategories([...availableCategories, newCategory]);
+                                setUploadForm(prev => ({ ...prev, category: newCategory }));
+                                toast.success(`New category "${newCategory}" added!`);
+                              }
+                            }
+                          }}
+                          className={`px-3 py-2 rounded-lg transition ${
+                            darkMode 
+                              ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                              : 'bg-purple-500 text-white hover:bg-purple-600'
+                          }`}
+                          title="Add New Category"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        console.log('Upload button clicked, form data:', uploadForm);
+                        
+                        // Validate inputs
+                        if (!uploadForm.filename) {
+                          toast.error('Please select a file');
+                          return;
+                        }
+                        if (!uploadForm.title || !uploadForm.title.trim()) {
+                          toast.error('Please enter a title');
+                          return;
+                        }
+                        if (!uploadForm.slideNumber || parseInt(uploadForm.slideNumber) < 1) {
+                          toast.error('Please enter a valid slide number');
+                          return;
+                        }
+                        if (!uploadForm.category) {
+                          toast.error('Please select a category');
+                          return;
+                        }
+                        
+                        // Check if filename already exists
+                        if (infographics.some(inf => inf.filename === uploadForm.filename)) {
+                          toast.error('A file with this name already exists');
+                          return;
+                        }
+                        
+                        // Add the new infographic
+                        const newInfographic = {
+                          filename: uploadForm.filename,
+                          title: uploadForm.title,
+                          slide_number: parseInt(uploadForm.slideNumber),
+                          category: uploadForm.category
+                        };
+                        
+                        console.log('Adding new infographic:', newInfographic);
+                        setInfographics(prev => [...prev, newInfographic]);
+                        
+                        // Clear the form
+                        setUploadForm({
+                          filename: '',
+                          title: '',
+                          slideNumber: '',
+                          category: ''
+                        });
+                        
+                        toast.success(`Infographic "${uploadForm.title}" added successfully!`);
+                      }}
+                      className={`mt-3 px-4 py-2 rounded-lg transition ${
+                        darkMode 
+                          ? 'bg-green-600 text-white hover:bg-green-700' 
+                          : 'bg-green-500 text-white hover:bg-green-600'
+                      }`}
+                    >
+                      Upload Infographic
+                    </button>
+                  </div>
+
+                  {/* Current Infographics List */}
+                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      Current Infographics ({infographics.length})
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className={`w-full ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <thead>
+                          <tr className={`border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                            <th className="text-left p-2">Thumbnail</th>
+                            <th className="text-left p-2">Filename</th>
+                            <th className="text-left p-2">Title</th>
+                            <th className="text-left p-2">Slide</th>
+                            <th className="text-left p-2">Category</th>
+                            <th className="text-left p-2">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {infographics.map((infographic, index) => (
+                            <tr key={infographic.filename} className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                              <td className="p-2">
+                                <img
+                                  src={`/infographics/${infographic.filename}`}
+                                  alt={infographic.title}
+                                  className="w-12 h-12 object-contain rounded bg-gray-100"
+                                  onError={e => {
+                                    if (!e.target.src.includes('via.placeholder.com')) {
+                                      e.target.onerror = null;
+                                      e.target.src = 'https://via.placeholder.com/48x48?text=No+Image';
+                                    }
+                                  }}
+                                />
+                              </td>
+                              <td className="p-2 font-mono text-sm">{infographic.filename}</td>
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={infographic.title}
+                                  onChange={(e) => {
+                                    const newInfographics = [...infographics];
+                                    newInfographics[index].title = e.target.value;
+                                    setInfographics(newInfographics);
+                                  }}
+                                  className={`px-2 py-1 rounded border text-sm ${
+                                    darkMode 
+                                      ? 'bg-gray-600 border-gray-500 text-white' 
+                                      : 'bg-white border-gray-300 text-gray-900'
+                                  }`}
+                                />
+                              </td>
+                              <td className="p-2">
+                                <input
+                                  type="number"
+                                  value={infographic.slide_number}
+                                  onChange={(e) => {
+                                    const newInfographics = [...infographics];
+                                    newInfographics[index].slide_number = parseInt(e.target.value);
+                                    setInfographics(newInfographics);
+                                  }}
+                                  className={`px-2 py-1 rounded border text-sm w-16 ${
+                                    darkMode 
+                                      ? 'bg-gray-600 border-gray-500 text-white' 
+                                      : 'bg-white border-gray-300 text-gray-900'
+                                  }`}
+                                />
+                              </td>
+                              <td className="p-2">
+                                <select
+                                  value={infographic.category}
+                                  onChange={(e) => {
+                                    const newInfographics = [...infographics];
+                                    newInfographics[index].category = e.target.value;
+                                    setInfographics(newInfographics);
+                                  }}
+                                  className={`px-2 py-1 rounded border text-sm ${
+                                    darkMode 
+                                      ? 'bg-gray-600 border-gray-500 text-white' 
+                                      : 'bg-white border-gray-300 text-gray-900'
+                                  }`}
+                                >
+                                  {availableCategories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="p-2">
+                                <button
+                                  onClick={() => {
+                                    const newInfographics = infographics.filter((_, i) => i !== index);
+                                    setInfographics(newInfographics);
+                                  }}
+                                  className={`px-2 py-1 rounded text-xs ${
+                                    darkMode 
+                                      ? 'bg-red-600 text-white hover:bg-red-700' 
+                                      : 'bg-red-500 text-white hover:bg-red-600'
+                                  }`}
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Category Management Section */}
+                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      Manage Categories ({availableCategories.length})
+                    </h4>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {availableCategories.map(category => (
+                        <div
+                          key={category}
+                          className={`flex items-center gap-2 px-3 py-1 rounded-lg ${
+                            darkMode 
+                              ? 'bg-gray-600 text-white' 
+                              : 'bg-gray-200 text-gray-800'
+                          }`}
+                        >
+                          <span className="text-sm">{category}</span>
+                          <button
+                            onClick={() => {
+                              // Check if category is in use
+                              const inUse = infographics.some(inf => inf.category === category);
+                              if (inUse) {
+                                toast.error(`Cannot delete "${category}" - it's being used by ${infographics.filter(inf => inf.category === category).length} infographic(s)`);
+                              } else {
+                                setAvailableCategories(availableCategories.filter(cat => cat !== category));
+                                toast.success(`Category "${category}" deleted!`);
+                              }
+                            }}
+                            className={`text-xs px-1 py-0.5 rounded ${
+                              darkMode 
+                                ? 'bg-red-500 text-white hover:bg-red-600' 
+                                : 'bg-red-400 text-white hover:bg-red-500'
+                            }`}
+                            title="Delete Category"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="New category name"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            const newCategory = e.target.value.trim();
+                            if (newCategory) {
+                              if (availableCategories.includes(newCategory)) {
+                                toast.error('Category already exists!');
+                              } else {
+                                setAvailableCategories([...availableCategories, newCategory]);
+                                toast.success(`New category "${newCategory}" added!`);
+                                e.target.value = '';
+                              }
+                            }
+                          }
+                        }}
+                        className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
+                          darkMode 
+                            ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                        }`}
+                      />
+                      <button
+                        onClick={() => {
+                          const input = document.querySelector('input[placeholder="New category name"]');
+                          const newCategory = input.value.trim();
+                          if (newCategory) {
+                            if (availableCategories.includes(newCategory)) {
+                              toast.error('Category already exists!');
+                            } else {
+                              setAvailableCategories([...availableCategories, newCategory]);
+                              toast.success(`New category "${newCategory}" added!`);
+                              input.value = '';
+                            }
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          darkMode 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-green-500 text-white hover:bg-green-600'
+                        }`}
+                      >
+                        Add Category
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Download Section */}
+                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      Export/Import
+                    </h4>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          const dataStr = JSON.stringify(infographics, null, 2);
+                          const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                          const url = URL.createObjectURL(dataBlob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = 'mapping.json';
+                          link.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          darkMode 
+                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                      >
+                        Download mapping.json
+                      </button>
+                      <button
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = '.json';
+                          input.onchange = (e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (e) => {
+                                try {
+                                  const data = JSON.parse(e.target.result);
+                                  setInfographics(data);
+                                  toast.success('Infographics data imported successfully');
+                                } catch (error) {
+                                  toast.error('Invalid JSON file');
+                                }
+                              };
+                              reader.readAsText(file);
+                            }
+                          };
+                          input.click();
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          darkMode 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-green-500 text-white hover:bg-green-600'
+                        }`}
+                      >
+                        Import mapping.json
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`} 
-         style={{
-           backgroundImage: darkMode 
-             ? 'linear-gradient(rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.84)), url(/icons2.jpg)' 
-             : 'linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), url(/icons2.jpg)',
-           backgroundSize: 'cover',
-           backgroundPosition: 'center',
-           backgroundAttachment: 'fixed'
-         }}>
+    <div
+      className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}
+      style={{
+        backgroundImage: darkMode
+          ? 'linear-gradient(rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.84)), url(/icons2.jpg)'
+          : 'linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), url(/icons2.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Navigation Bar */}
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} setShowFeedbackModal={setShowFeedbackModal} darkMode={darkMode} />
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -1492,6 +2183,26 @@ function App() {
                   >
                     <span className="text-lg">📊</span>
                     <span className="text-sm font-medium">View Feedback</span>
+                  </button>
+                )}
+                
+                {/* Admin Infographics Button */}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      console.log('Manage Infographics button clicked from main header');
+                      setShowInfographicsAdmin(true);
+                      console.log('showInfographicsAdmin set to true from main header');
+                    }}
+                    className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
+                      darkMode 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                    }`}
+                    title="Manage Infographics (Admin)"
+                  >
+                    <span className="text-lg">📁</span>
+                    <span className="text-sm font-medium">Manage Infographics</span>
                   </button>
                 )}
                 
@@ -2625,6 +3336,275 @@ function App() {
         >
           <img src="/llama.gif" alt="Llama!" style={{ maxWidth: '80vw', maxHeight: '80vh', borderRadius: '16px', boxShadow: '0 4px 32px #0008' }} />
         </div>
+      )}
+      
+
+      
+      {/* Infographics Admin Modal */}
+      {showInfographicsAdmin && (
+        <>
+          {console.log('Rendering infographics admin modal')}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            style={{ zIndex: 9999 }}
+          >
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-6xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col`}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  Manage Infographics ({infographics.length})
+                </h3>
+                <button
+                  onClick={() => setShowInfographicsAdmin(false)}
+                  className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                >
+                  <span className="text-xl">✕</span>
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                {/* Upload Section */}
+                <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    Upload New Infographic
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          console.log('File selected:', file.name);
+                          // For now, just log the file. In a real app, you'd upload it to the server
+                        }
+                      }}
+                      className={`px-3 py-2 rounded-lg border transition-colors ${
+                        darkMode 
+                          ? 'bg-gray-600 border-gray-500 text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Title"
+                      className={`px-3 py-2 rounded-lg border transition-colors ${
+                        darkMode 
+                          ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
+                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                      }`}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Slide Number"
+                      className={`px-3 py-2 rounded-lg border transition-colors ${
+                        darkMode 
+                          ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
+                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                      }`}
+                    />
+                    <select
+                      className={`px-3 py-2 rounded-lg border transition-colors ${
+                        darkMode 
+                          ? 'bg-gray-600 border-gray-500 text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                    >
+                      <option value="">Select Category</option>
+                      <option value="Business">Business</option>
+                      <option value="Business2">Business2</option>
+                      <option value="Technology">Technology</option>
+                      <option value="Military">Military</option>
+                      <option value="HADR">HADR</option>
+                      <option value="Infrastructure">Infrastructure</option>
+                      <option value="Maritime">Maritime</option>
+                      <option value="Drone">Drone</option>
+                    </select>
+                  </div>
+                  <button
+                    className={`mt-3 px-4 py-2 rounded-lg transition ${
+                      darkMode 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                    }`}
+                  >
+                    Upload Infographic
+                  </button>
+                </div>
+
+                {/* Current Infographics List */}
+                <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    Current Infographics ({infographics.length})
+                  </h4>
+                  <div className="overflow-x-auto">
+                    <table className={`w-full ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      <thead>
+                        <tr className={`border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                          <th className="text-left p-2">Thumbnail</th>
+                          <th className="text-left p-2">Filename</th>
+                          <th className="text-left p-2">Title</th>
+                          <th className="text-left p-2">Slide</th>
+                          <th className="text-left p-2">Category</th>
+                          <th className="text-left p-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {infographics.map((infographic, index) => (
+                          <tr key={infographic.filename} className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                            <td className="p-2">
+                              <img
+                                src={`/infographics/${infographic.filename}`}
+                                alt={infographic.title}
+                                className="w-12 h-12 object-contain rounded bg-gray-100"
+                                onError={e => {
+                                  if (!e.target.src.includes('via.placeholder.com')) {
+                                    e.target.onerror = null;
+                                    e.target.src = 'https://via.placeholder.com/48x48?text=No+Image';
+                                  }
+                                }}
+                              />
+                            </td>
+                            <td className="p-2 font-mono text-sm">{infographic.filename}</td>
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={infographic.title}
+                                onChange={(e) => {
+                                  const newInfographics = [...infographics];
+                                  newInfographics[index].title = e.target.value;
+                                  setInfographics(newInfographics);
+                                }}
+                                className={`px-2 py-1 rounded border text-sm ${
+                                  darkMode 
+                                    ? 'bg-gray-600 border-gray-500 text-white' 
+                                    : 'bg-white border-gray-300 text-gray-900'
+                                }`}
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                value={infographic.slide_number}
+                                onChange={(e) => {
+                                  const newInfographics = [...infographics];
+                                  newInfographics[index].slide_number = parseInt(e.target.value);
+                                  setInfographics(newInfographics);
+                                }}
+                                className={`px-2 py-1 rounded border text-sm w-16 ${
+                                  darkMode 
+                                    ? 'bg-gray-600 border-gray-500 text-white' 
+                                    : 'bg-white border-gray-300 text-gray-900'
+                                }`}
+                              />
+                            </td>
+                            <td className="p-2">
+                              <select
+                                value={infographic.category}
+                                onChange={(e) => {
+                                  const newInfographics = [...infographics];
+                                  newInfographics[index].category = e.target.value;
+                                  setInfographics(newInfographics);
+                                }}
+                                className={`px-2 py-1 rounded border text-sm ${
+                                  darkMode 
+                                    ? 'bg-gray-600 border-gray-500 text-white' 
+                                    : 'bg-white border-gray-300 text-gray-900'
+                                }`}
+                              >
+                                <option value="Business">Business</option>
+                                <option value="Business2">Business2</option>
+                                <option value="Technology">Technology</option>
+                                <option value="Military">Military</option>
+                                <option value="HADR">HADR</option>
+                                <option value="Infrastructure">Infrastructure</option>
+                                <option value="Maritime">Maritime</option>
+                                <option value="Drone">Drone</option>
+                              </select>
+                            </td>
+                            <td className="p-2">
+                              <button
+                                onClick={() => {
+                                  const newInfographics = infographics.filter((_, i) => i !== index);
+                                  setInfographics(newInfographics);
+                                }}
+                                className={`px-2 py-1 rounded text-xs ${
+                                  darkMode 
+                                    ? 'bg-red-600 text-white hover:bg-red-700' 
+                                    : 'bg-red-500 text-white hover:bg-red-600'
+                                }`}
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Download Section */}
+                <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    Export/Import
+                  </h4>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        const dataStr = JSON.stringify(infographics, null, 2);
+                        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                        const url = URL.createObjectURL(dataBlob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = 'mapping.json';
+                        link.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className={`px-4 py-2 rounded-lg transition ${
+                        darkMode 
+                          ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                          : 'bg-blue-500 text-white hover:bg-blue-600'
+                      }`}
+                    >
+                      Download mapping.json
+                    </button>
+                    <button
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.json';
+                        input.onchange = (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                              try {
+                                const data = JSON.parse(e.target.result);
+                                setInfographics(data);
+                                toast.success('Infographics data imported successfully');
+                              } catch (error) {
+                                toast.error('Invalid JSON file');
+                              }
+                            };
+                            reader.readAsText(file);
+                          }
+                        };
+                        input.click();
+                      }}
+                      className={`px-4 py-2 rounded-lg transition ${
+                        darkMode 
+                          ? 'bg-green-600 text-white hover:bg-green-700' 
+                          : 'bg-green-500 text-white hover:bg-green-600'
+                      }`}
+                    >
+                      Import mapping.json
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
