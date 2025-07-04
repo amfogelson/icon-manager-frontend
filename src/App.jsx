@@ -73,7 +73,7 @@ function App() {
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [showFeedbackAdmin, setShowFeedbackAdmin] = useState(false);
   const [allFeedback, setAllFeedback] = useState([]);
-  const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN === 'true'); // Only true if you set the env var
+  const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN?.toLowerCase() === 'true'); // Only true if you set the env var
   console.log('Admin state:', isAdmin);
   console.log('VITE_IS_ADMIN env var:', import.meta.env.VITE_IS_ADMIN);
   const [showLlama, setShowLlama] = useState(false);
@@ -1487,7 +1487,13 @@ function App() {
       });
   }, []);
 
-  const categories = ['All', ...Array.from(new Set(infographics.filter(i => i && i.category).map(i => i.category)))];
+  // Derive categories from infographics
+  const categories = ['All', ...Array.from(new Set(infographics.map(i => i.category).filter(Boolean)))];
+  const adminCategories = Array.from(new Set(infographics.map(i => i.category).filter(Boolean)));
+  
+  console.log('Infographics loaded:', infographics.length);
+  console.log('Categories derived:', categories);
+  console.log('Admin categories:', adminCategories);
 
   const filtered = infographics.filter(i =>
     (category === 'All' || i.category === category) &&
@@ -1670,7 +1676,8 @@ function App() {
         {/* Infographics Admin Modal - Inside Infographics Page */}
         {showInfographicsAdmin && (
           <>
-            {console.log('Rendering infographics admin modal from infographics page')}
+            {console.log('Rendering infographics admin modal - INFOGRAPHICS PAGE MODAL')}
+            {console.log('Infographics page modal adminCategories:', adminCategories)}
             <div 
               className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
               style={{ zIndex: 9999 }}
@@ -1737,12 +1744,10 @@ function App() {
                             : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                       />
-                      <div className="flex gap-2">
+                                            <div className="flex gap-2">
                         <select
                           value={uploadForm.category}
-                          onChange={(e) => {
-                            setUploadForm(prev => ({ ...prev, category: e.target.value }));
-                          }}
+                          onChange={e => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
                           className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
                             darkMode 
                               ? 'bg-gray-600 border-gray-500 text-white' 
@@ -1750,20 +1755,22 @@ function App() {
                           }`}
                         >
                           <option value="">Select Category</option>
-                          {availableCategories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
+                          {console.log('Rendering upload select with categories:', adminCategories)}
+                          {console.log('adminCategories length:', adminCategories.length)}
+                          {adminCategories.map((cat, index) => {
+                            console.log(`Rendering option ${index}:`, cat);
+                            return <option key={cat} value={cat}>{cat}</option>;
+                          })}
                         </select>
                         <button
                           onClick={() => {
                             const newCategory = prompt('Enter new category name:');
                             if (newCategory && newCategory.trim()) {
-                              if (availableCategories.includes(newCategory)) {
+                              if (adminCategories.includes(newCategory)) {
                                 toast.error('Category already exists!');
                               } else {
-                                setAvailableCategories([...availableCategories, newCategory]);
                                 setUploadForm(prev => ({ ...prev, category: newCategory }));
-                                toast.success(`New category "${newCategory}" added!`);
+                                toast.success(`New category "${newCategory}" added! You can now upload an infographic with this category.`);
                               }
                             }
                           }}
@@ -1906,7 +1913,7 @@ function App() {
                               <td className="p-2">
                                 <select
                                   value={infographic.category}
-                                  onChange={(e) => {
+                                  onChange={e => {
                                     const newInfographics = [...infographics];
                                     newInfographics[index].category = e.target.value;
                                     setInfographics(newInfographics);
@@ -1917,7 +1924,8 @@ function App() {
                                       : 'bg-white border-gray-300 text-gray-900'
                                   }`}
                                 >
-                                  {availableCategories.map(cat => (
+                                  {console.log('Rendering table dropdown with categories:', adminCategories)}
+                                  {adminCategories.map(cat => (
                                     <option key={cat} value={cat}>{cat}</option>
                                   ))}
                                 </select>
@@ -1941,94 +1949,6 @@ function App() {
                           ))}
                         </tbody>
                       </table>
-                    </div>
-                  </div>
-
-                  {/* Category Management Section */}
-                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      Manage Categories ({availableCategories.length})
-                    </h4>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {availableCategories.map(category => (
-                        <div
-                          key={category}
-                          className={`flex items-center gap-2 px-3 py-1 rounded-lg ${
-                            darkMode 
-                              ? 'bg-gray-600 text-white' 
-                              : 'bg-gray-200 text-gray-800'
-                          }`}
-                        >
-                          <span className="text-sm">{category}</span>
-                          <button
-                            onClick={() => {
-                              // Check if category is in use
-                              const inUse = infographics.some(inf => inf.category === category);
-                              if (inUse) {
-                                toast.error(`Cannot delete "${category}" - it's being used by ${infographics.filter(inf => inf.category === category).length} infographic(s)`);
-                              } else {
-                                setAvailableCategories(availableCategories.filter(cat => cat !== category));
-                                toast.success(`Category "${category}" deleted!`);
-                              }
-                            }}
-                            className={`text-xs px-1 py-0.5 rounded ${
-                              darkMode 
-                                ? 'bg-red-500 text-white hover:bg-red-600' 
-                                : 'bg-red-400 text-white hover:bg-red-500'
-                            }`}
-                            title="Delete Category"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="New category name"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            const newCategory = e.target.value.trim();
-                            if (newCategory) {
-                              if (availableCategories.includes(newCategory)) {
-                                toast.error('Category already exists!');
-                              } else {
-                                setAvailableCategories([...availableCategories, newCategory]);
-                                toast.success(`New category "${newCategory}" added!`);
-                                e.target.value = '';
-                              }
-                            }
-                          }
-                        }}
-                        className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
-                          darkMode 
-                            ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
-                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                        }`}
-                      />
-                      <button
-                        onClick={() => {
-                          const input = document.querySelector('input[placeholder="New category name"]');
-                          const newCategory = input.value.trim();
-                          if (newCategory) {
-                            if (availableCategories.includes(newCategory)) {
-                              toast.error('Category already exists!');
-                            } else {
-                              setAvailableCategories([...availableCategories, newCategory]);
-                              toast.success(`New category "${newCategory}" added!`);
-                              input.value = '';
-                            }
-                          }
-                        }}
-                        className={`px-4 py-2 rounded-lg transition ${
-                          darkMode 
-                            ? 'bg-green-600 text-white hover:bg-green-700' 
-                            : 'bg-green-500 text-white hover:bg-green-600'
-                        }`}
-                      >
-                        Add Category
-                      </button>
                     </div>
                   </div>
 
@@ -2160,31 +2080,6 @@ function App() {
                   <span className="text-lg">💬</span>
                   <span className="text-sm font-medium">Feedback</span>
                 </button>
-                
-                {/* Admin Feedback Button */}
-                {isAdmin && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await axios.get(`${backendUrl}/feedback`);
-                        setAllFeedback(response.data.feedback || []);
-                        setShowFeedbackAdmin(true);
-                      } catch (error) {
-                        console.error('Error loading feedback:', error);
-                        toast.error("Failed to load feedback");
-                      }
-                    }}
-                    className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
-                      darkMode 
-                        ? 'bg-red-600 text-white hover:bg-red-700' 
-                        : 'bg-red-500 text-white hover:bg-red-600'
-                    }`}
-                    title="View All Feedback (Admin)"
-                  >
-                    <span className="text-lg">📊</span>
-                    <span className="text-sm font-medium">View Feedback</span>
-                  </button>
-                )}
                 
                 {/* Admin Infographics Button */}
                 {isAdmin && (
@@ -3340,10 +3235,11 @@ function App() {
       
 
       
-      {/* Infographics Admin Modal */}
-      {showInfographicsAdmin && (
-        <>
-          {console.log('Rendering infographics admin modal')}
+              {/* Infographics Admin Modal */}
+        {showInfographicsAdmin && (
+          <>
+            {console.log('Rendering infographics admin modal - MAIN MODAL')}
+            {console.log('Modal adminCategories:', adminCategories)}
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             style={{ zIndex: 9999 }}
@@ -3375,7 +3271,7 @@ function App() {
                         const file = e.target.files[0];
                         if (file) {
                           console.log('File selected:', file.name);
-                          // For now, just log the file. In a real app, you'd upload it to the server
+                          setUploadForm(prev => ({ ...prev, filename: file.name }));
                         }
                       }}
                       className={`px-3 py-2 rounded-lg border transition-colors ${
@@ -3387,6 +3283,10 @@ function App() {
                     <input
                       type="text"
                       placeholder="Title"
+                      value={uploadForm.title}
+                      onChange={(e) => {
+                        setUploadForm(prev => ({ ...prev, title: e.target.value }));
+                      }}
                       className={`px-3 py-2 rounded-lg border transition-colors ${
                         darkMode 
                           ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
@@ -3396,6 +3296,10 @@ function App() {
                     <input
                       type="number"
                       placeholder="Slide Number"
+                      value={uploadForm.slideNumber}
+                      onChange={(e) => {
+                        setUploadForm(prev => ({ ...prev, slideNumber: e.target.value }));
+                      }}
                       className={`px-3 py-2 rounded-lg border transition-colors ${
                         darkMode 
                           ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
@@ -3403,6 +3307,8 @@ function App() {
                       }`}
                     />
                     <select
+                      value={uploadForm.category}
+                      onChange={e => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
                       className={`px-3 py-2 rounded-lg border transition-colors ${
                         darkMode 
                           ? 'bg-gray-600 border-gray-500 text-white' 
@@ -3410,17 +3316,61 @@ function App() {
                       }`}
                     >
                       <option value="">Select Category</option>
-                      <option value="Business">Business</option>
-                      <option value="Business2">Business2</option>
-                      <option value="Technology">Technology</option>
-                      <option value="Military">Military</option>
-                      <option value="HADR">HADR</option>
-                      <option value="Infrastructure">Infrastructure</option>
-                      <option value="Maritime">Maritime</option>
-                      <option value="Drone">Drone</option>
+                      {console.log('Rendering upload select with categories:', adminCategories)}
+                      {adminCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
                   <button
+                    onClick={() => {
+                      console.log('Upload button clicked, form data:', uploadForm);
+                      
+                      // Validate inputs
+                      if (!uploadForm.filename) {
+                        toast.error('Please select a file');
+                        return;
+                      }
+                      if (!uploadForm.title || !uploadForm.title.trim()) {
+                        toast.error('Please enter a title');
+                        return;
+                      }
+                      if (!uploadForm.slideNumber || parseInt(uploadForm.slideNumber) < 1) {
+                        toast.error('Please enter a valid slide number');
+                        return;
+                      }
+                      if (!uploadForm.category) {
+                        toast.error('Please select a category');
+                        return;
+                      }
+                      
+                      // Check if filename already exists
+                      if (infographics.some(inf => inf.filename === uploadForm.filename)) {
+                        toast.error('A file with this name already exists');
+                        return;
+                      }
+                      
+                      // Add the new infographic
+                      const newInfographic = {
+                        filename: uploadForm.filename,
+                        title: uploadForm.title,
+                        slide_number: parseInt(uploadForm.slideNumber),
+                        category: uploadForm.category
+                      };
+                      
+                      console.log('Adding new infographic:', newInfographic);
+                      setInfographics(prev => [...prev, newInfographic]);
+                      
+                      // Clear the form
+                      setUploadForm({
+                        filename: '',
+                        title: '',
+                        slideNumber: '',
+                        category: ''
+                      });
+                      
+                      toast.success(`Infographic "${uploadForm.title}" added successfully!`);
+                    }}
                     className={`mt-3 px-4 py-2 rounded-lg transition ${
                       darkMode 
                         ? 'bg-green-600 text-white hover:bg-green-700' 
@@ -3511,14 +3461,9 @@ function App() {
                                     : 'bg-white border-gray-300 text-gray-900'
                                 }`}
                               >
-                                <option value="Business">Business</option>
-                                <option value="Business2">Business2</option>
-                                <option value="Technology">Technology</option>
-                                <option value="Military">Military</option>
-                                <option value="HADR">HADR</option>
-                                <option value="Infrastructure">Infrastructure</option>
-                                <option value="Maritime">Maritime</option>
-                                <option value="Drone">Drone</option>
+                                {adminCategories.map(cat => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
                               </select>
                             </td>
                             <td className="p-2">
