@@ -2019,6 +2019,8 @@ function App() {
         .then(res => res.json())
         .then(data => setSingleColorIcons(data.icons || []))
         .catch(() => setSingleColorIcons([]));
+    } else {
+      setSingleColorIcons([]); // Clear when not on single-color tab
     }
   }, [activeTab]);
 
