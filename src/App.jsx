@@ -38,7 +38,6 @@ function Navbar({ activeTab, setActiveTab, setShowFeedbackModal, darkMode }) {
 }
 
 function App() {
-  console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
   const [icons, setIcons] = useState([]);
   const [flags, setFlags] = useState([]);
   const [folders, setFolders] = useState({});
@@ -74,8 +73,6 @@ function App() {
   const [showFeedbackAdmin, setShowFeedbackAdmin] = useState(false);
   const [allFeedback, setAllFeedback] = useState([]);
   const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN?.toLowerCase() === 'true'); // Only true if you set the env var
-  console.log('Admin state:', isAdmin);
-  console.log('VITE_IS_ADMIN env var:', import.meta.env.VITE_IS_ADMIN);
   const [showLlama, setShowLlama] = useState(false);
   const llamaTimeoutRef = React.useRef(null);
   const [infographics, setInfographics] = useState([]);
@@ -84,7 +81,6 @@ function App() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [showInfographicsAdmin, setShowInfographicsAdmin] = useState(false);
-  console.log('showInfographicsAdmin state:', showInfographicsAdmin);
   
   // State for managing categories
   const [availableCategories, setAvailableCategories] = useState([
@@ -99,6 +95,9 @@ function App() {
     slideNumber: '',
     category: ''
   });
+
+  // 1. Add state for singleColorIcons
+  const [singleColorIcons, setSingleColorIcons] = useState([]);
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 //Trigger redeploy
@@ -1562,11 +1561,6 @@ function App() {
                 )}
                 {isAdmin && (
                   <button
-                    onClick={() => {
-                      console.log('Manage Infographics button clicked from infographics page');
-                      setShowInfographicsAdmin(true);
-                      console.log('showInfographicsAdmin set to true from infographics page');
-                    }}
                     className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-green-500 text-white hover:bg-green-600'}`}
                     title="Manage Infographics (Admin)"
                   >
@@ -2019,6 +2013,15 @@ function App() {
     );
   }
 
+  useEffect(() => {
+    if (activeTab === "single-color") {
+      fetch("/colorful-icons/SingleColor/list.json")
+        .then(res => res.json())
+        .then(data => setSingleColorIcons(data.icons || []))
+        .catch(() => setSingleColorIcons([]));
+    }
+  }, [activeTab]);
+
   return (
     <div
       className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}
@@ -2173,6 +2176,16 @@ function App() {
                 Colorful Icons
               </button>
               <button
+                onClick={() => handleTabChange("single-color")}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  activeTab === "single-color"
+                    ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
+                    : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
+                }`}
+              >
+                Single Color
+              </button>
+              <button
                 onClick={() => handleTabChange("flags")}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "flags"
@@ -2191,6 +2204,7 @@ function App() {
                 placeholder={
                   activeTab === "icons" && !currentFolder ? "Search all icons..." :
                   activeTab === "colorful-icons" && !currentFolder ? "Search all colorful icons..." :
+                  activeTab === "single-color" ? "Search all single color icons..." :
                   `Search ${activeTab}...`
                 }
                 value={searchTerm}
