@@ -83,14 +83,13 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("icons"); // "icons", "colorful-icons", "single-color", or "flags"
+  const [activeTab, setActiveTab] = useState("icons"); // "icons", "colorful-icons", or "flags"
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [flagType, setFlagType] = useState("rectangle"); // "rectangle" or "circle"
   const [groupColors, setGroupColors] = useState({}); // Track colors for each group of current icon
   const [isLoading, setIsLoading] = useState(true); // Add loading state
   const [colorfulIcons, setColorfulIcons] = useState([]); // For colorful icons global search
   const [colorfulFolders, setColorfulFolders] = useState({}); // Colorful icons folders
-  const [singleColorIcons, setSingleColorIcons] = useState([]); // For single color icons
   const [selectedIcons, setSelectedIcons] = useState(new Set());
   const [selectedColorfulIcons, setSelectedColorfulIcons] = useState(new Set());
   const [selectedFlags, setSelectedFlags] = useState(new Set());
@@ -104,13 +103,9 @@ function App() {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState("New Addition");
   const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [feedbackEmail, setFeedbackEmail] = useState(""); // Add email field
   const [showFeedbackAdmin, setShowFeedbackAdmin] = useState(false);
   const [allFeedback, setAllFeedback] = useState([]);
   const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN === 'true'); // Only true if you set the env var
-  const [showResponseModal, setShowResponseModal] = useState(false);
-  const [selectedFeedbackForResponse, setSelectedFeedbackForResponse] = useState(null);
-  const [responseMessage, setResponseMessage] = useState("");
   
   // Infographics state
   const [infographics, setInfographics] = useState([]);
@@ -162,11 +157,6 @@ function App() {
     
     axios.get(`${backendUrl}/flags`)
       .then(res => setFlags(res.data.flags))
-      .catch(err => console.error(err));
-    
-    // Fetch single color icons
-    axios.get(`${backendUrl}/single-color`)
-      .then(res => setSingleColorIcons(res.data.icons || []))
       .catch(err => console.error(err));
   }, []);
 
@@ -271,7 +261,7 @@ function App() {
         setSvgUrl(`${backendUrl}/flags/${filename}`);
       }
     } else {
-      // For icons, colorful icons, and single color icons, use folder-aware logic
+      // For icons and colorful icons, use folder-aware logic
       console.log('Setting selectedIcon to:', itemName);
       setSelectedIcon(itemName);
       const folderPath = currentFolder || "Root";
@@ -285,24 +275,6 @@ function App() {
         } else {
           svgUrlToSet = `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg`;
         }
-      } else if (activeTab === "single-color") {
-        // Use single color path - check for both PNG and SVG
-        const pngUrl = `${backendUrl}/single-color-files/${itemName}.png`;
-        const svgUrl = `${backendUrl}/single-color-files/${itemName}.svg`;
-        
-        // Try to load SVG first, fallback to PNG
-        fetch(svgUrl, { method: 'HEAD' })
-          .then(response => {
-            if (response.ok) {
-              setSvgUrl(svgUrl);
-            } else {
-              setSvgUrl(pngUrl);
-            }
-          })
-          .catch(() => {
-            setSvgUrl(pngUrl);
-          });
-        return; // Exit early since we're handling the URL setting asynchronously
       } else {
         // Use regular icons path
         if (folderPath === "Root") {
@@ -317,7 +289,7 @@ function App() {
       setSelectedGroup(null);
       setGroupColors({}); // Reset group colors for new icon
       
-      // Only load groups for regular icons, not for colorful icons, single color icons, or flags
+      // Only load groups for regular icons, not for colorful icons or flags
       if (activeTab === "icons") {
         console.log('Loading groups for icon:', itemName);
         axios.get(`${backendUrl}/groups/icon/${folderPath}/${itemName}.svg`) // Append .svg extension
@@ -329,7 +301,7 @@ function App() {
             console.error('Error loading groups:', err);
           });
       } else {
-        setGroups([]); // No groups for colorful icons, single color icons, or flags
+        setGroups([]); // No groups for colorful icons or flags
       }
     }
   };
@@ -353,38 +325,6 @@ function App() {
       }).then(res => {
         const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
         setSvgUrl(`${baseUrl}/${selectedIcon}?t=${Date.now()}`);
-        setLoading(false);
-        toast.success("Color updated");
-      }).catch(err => {
-        console.error(err);
-        setLoading(false);
-        toast.error("Failed to update color.");
-      });
-    } else if (activeTab === "single-color") {
-      // For single color icons, apply color to the entire icon
-      setLoading(true);
-      axios.post(`${backendUrl}/single-color/update`, {
-        icon_name: selectedIcon,
-        color: colorToApply
-      }, {
-        headers: { 'Content-Type': 'application/json' }
-      }).then(res => {
-        // Refresh the icon to show the new color
-        const pngUrl = `${backendUrl}/single-color-files/${selectedIcon}.png`;
-        const svgUrl = `${backendUrl}/single-color-files/${selectedIcon}.svg`;
-        
-        fetch(svgUrl, { method: 'HEAD' })
-          .then(response => {
-            if (response.ok) {
-              setSvgUrl(`${svgUrl}?t=${Date.now()}`);
-            } else {
-              setSvgUrl(`${pngUrl}?t=${Date.now()}`);
-            }
-          })
-          .catch(() => {
-            setSvgUrl(`${pngUrl}?t=${Date.now()}`);
-          });
-        
         setLoading(false);
         toast.success("Color updated");
       }).catch(err => {
@@ -443,46 +383,25 @@ function App() {
 
   const exportSvg = async () => {
     try {
-      // Determine the icon name and type
-      let iconName, type, folder;
-      if (activeTab === "flags" && selectedCountry) {
-        iconName = getFlagFilename(selectedCountry, flagType);
-        type = "flag";
-      } else if (activeTab === "single-color") {
-        iconName = selectedIcon + ".svg"; // For single color icons
-        type = "icon";
-        folder = "SingleColor";
-      } else if (activeTab === "colorful-icons") {
-        iconName = selectedIcon + ".svg"; // For colorful icons
-        type = "colorful-icon";
-        folder = currentFolder || "Root";
-      } else {
-        iconName = selectedIcon + ".svg"; // Append .svg extension for icons
-        type = "icon";
-        folder = currentFolder || "Root";
-      }
-
-      // Call the backend to export SVG
-      const requestData = {
-        icon_name: iconName,
-        type: type
-      };
+      // Fetch the SVG content
+      const response = await fetch(svgUrl);
+      const svgContent = await response.text();
       
-      if (type === "icon" || type === "colorful-icon") {
-        requestData.folder = folder;
-      }
+      // Create a blob with the SVG content
+      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
       
-      console.log('Exporting SVG with request data:', requestData);
-      
-      const response = await axios.post(`${backendUrl}/download-svg`, requestData, {
-        responseType: 'blob'
-      });
-
       // Create download link
-      const url = window.URL.createObjectURL(response.data);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = iconName;
+      
+      // Set filename based on active tab
+      if (activeTab === "flags" && selectedCountry) {
+        const filename = getFlagFilename(selectedCountry, flagType);
+        link.download = filename;
+      } else {
+        link.download = selectedIcon + ".svg"; // Append .svg extension for icons
+      }
       
       // Trigger download
       document.body.appendChild(link);
@@ -506,10 +425,6 @@ function App() {
       if (activeTab === "flags" && selectedCountry) {
         iconName = getFlagFilename(selectedCountry, flagType);
         type = "flag";
-      } else if (activeTab === "single-color") {
-        iconName = selectedIcon + ".svg"; // For single color icons
-        type = "icon";
-        folder = "SingleColor";
       } else {
         iconName = selectedIcon + ".svg"; // Append .svg extension for icons
         type = "icon";
@@ -719,43 +634,6 @@ function App() {
         setLoading(false);
         toast.error("Failed to reset color");
       }
-    } else if (activeTab === "single-color") {
-      // For single color icons, revert to original color
-      try {
-        setLoading(true);
-        
-        const response = await axios.post(`${backendUrl}/single-color/revert`, {
-          icon_name: selectedIcon
-        });
-        
-        if (response.data.status === "Reverted to original color") {
-          // Refresh the SVG to show the original color
-          const pngUrl = `${backendUrl}/single-color-files/${selectedIcon}.png?t=${Date.now()}`;
-          const svgUrl = `${backendUrl}/single-color-files/${selectedIcon}.svg?t=${Date.now()}`;
-          
-          fetch(svgUrl, { method: 'HEAD' })
-            .then(response => {
-              if (response.ok) {
-                setSvgUrl(svgUrl);
-              } else {
-                setSvgUrl(pngUrl);
-              }
-            })
-            .catch(() => {
-              setSvgUrl(pngUrl);
-            });
-          
-          setLoading(false);
-          toast.success("Icon reverted to original color!");
-        } else {
-          toast.error("Failed to revert to original color");
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error reverting single color icon:', error);
-        toast.error("Failed to revert to original color");
-        setLoading(false);
-      }
     } else {
       // For icons, reset specific group to its original color
       if (!selectedGroup) return;
@@ -841,11 +719,9 @@ function App() {
             ? colorfulIcons.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name))
             : []
         )
-      : activeTab === "single-color"
-        ? singleColorIcons.filter(item => item.toLowerCase().includes(searchTerm.toLowerCase())).sort()
-        : activeTab === "flags"
-          ? getCountryNames().filter(country => country.toLowerCase().includes(searchTerm.toLowerCase())).sort()
-          : [];
+      : activeTab === "flags"
+        ? getCountryNames().filter(country => country.toLowerCase().includes(searchTerm.toLowerCase())).sort()
+        : [];
 
   // Handle tab change
   const handleTabChange = (tab) => {
@@ -1326,37 +1202,6 @@ function App() {
     }
   };
 
-  const handleSingleColorIconClick = (iconName) => {
-    try {
-      if (isMultiSelectMode) {
-        toggleIconSelection(iconName);
-        return;
-      }
-      
-      setSelectedIcon(iconName);
-      setSelectedGroup("entire_icon"); // Set a special group for single color icons
-      
-      // Check for both PNG and SVG files
-      const pngUrl = `${backendUrl}/single-color-files/${iconName}.png`;
-      const svgUrl = `${backendUrl}/single-color-files/${iconName}.svg`;
-      
-      // Try to load SVG first, fallback to PNG
-      fetch(svgUrl, { method: 'HEAD' })
-        .then(response => {
-          if (response.ok) {
-            setSvgUrl(svgUrl);
-          } else {
-            setSvgUrl(pngUrl);
-          }
-        })
-        .catch(() => {
-          setSvgUrl(pngUrl);
-        });
-    } catch (error) {
-      console.error('Error in handleSingleColorIconClick:', error);
-    }
-  };
-
   const handleFlagClick = (flagName) => {
     try {
       if (isMultiSelectMode) {
@@ -1414,44 +1259,16 @@ function App() {
 
   const handleCopySvg = async () => {
     try {
-      // Determine the icon name and type
-      let iconName, type, folder;
-      if (activeTab === "flags" && selectedCountry) {
-        iconName = getFlagFilename(selectedCountry, flagType);
-        type = "flag";
-      } else if (activeTab === "single-color") {
-        iconName = selectedIcon + ".svg"; // For single color icons
-        type = "icon";
-        folder = "SingleColor";
-      } else if (activeTab === "colorful-icons") {
-        iconName = selectedIcon + ".svg"; // For colorful icons
-        type = "colorful-icon";
-        folder = currentFolder || "Root";
-      } else {
-        iconName = selectedIcon + ".svg"; // Append .svg extension for icons
-        type = "icon";
-        folder = currentFolder || "Root";
+      let url = svgUrl;
+      // For flags, svgUrl is already set correctly
+      // For icons and colorful icons, svgUrl is also set correctly
+      if (!url) {
+        toast.error("No SVG to copy");
+        return;
       }
-
-      // Call the backend to get SVG content
-      const requestData = {
-        icon_name: iconName,
-        type: type
-      };
-      
-      if (type === "icon" || type === "colorful-icon") {
-        requestData.folder = folder;
-      }
-      
-      console.log('Copying SVG with request data:', requestData);
-      
-      const response = await axios.post(`${backendUrl}/export-svg`, requestData);
-      
-      if (response.data.svg_content) {
-        await navigator.clipboard.writeText(response.data.svg_content);
-      } else {
-        throw new Error('No SVG content received');
-      }
+      const response = await fetch(url);
+      const svgContent = await response.text();
+      await navigator.clipboard.writeText(svgContent);
       toast.success("SVG copied to clipboard!");
     } catch (error) {
       console.error('Error copying SVG:', error);
@@ -1591,20 +1408,6 @@ function App() {
                       {getSelectedCount()} selected
                     </span>
                   )}
-                  
-                  {/* Feedback Button */}
-                  <button
-                    onClick={() => setShowFeedbackModal(true)}
-                    className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
-                      darkMode 
-                        ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                    title="Submit Feedback"
-                  >
-                    <span className="text-lg">💬</span>
-                    <span className="text-sm font-medium">Feedback</span>
-                  </button>
                 </>
               )}
               <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>© 2025</div>
@@ -1644,16 +1447,6 @@ function App() {
                 Colorful Icons
               </button>
               <button
-                onClick={() => handleTabChange("single-color")}
-                className={`px-4 py-2 font-medium transition-colors ${
-                  activeTab === "single-color"
-                    ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
-                    : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
-                }`}
-              >
-                Single Color
-              </button>
-              <button
                 onClick={() => handleTabChange("flags")}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "flags"
@@ -1672,7 +1465,6 @@ function App() {
                 placeholder={
                   activeTab === "icons" && !currentFolder ? "Search all icons..." :
                   activeTab === "colorful-icons" && !currentFolder ? "Search all colorful icons..." :
-                  activeTab === "single-color" ? "Search single color icons..." :
                   `Search ${activeTab}...`
                 }
                 value={searchTerm}
@@ -1861,65 +1653,6 @@ function App() {
                   )}
                 </button>
               ))}
-              
-              {/* Single Color Icons List */}
-              {activeTab === "single-color" && (
-                <>
-                  {iconListView === "list" ? (
-                    filteredItems.map(item => (
-                      <button
-                        key={item}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
-                          selectedIcon === item 
-                            ? 'bg-[#2E5583] text-white font-semibold' 
-                            : darkMode 
-                              ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                              : 'hover:bg-blue-100 text-gray-700'
-                        }`}
-                        onClick={() => handleSingleColorIconClick(item)}>
-                        <span>{item}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="grid grid-cols-3 gap-3">
-                      {filteredItems.map(item => {
-                        // Check for both PNG and SVG files
-                        const pngUrl = `${backendUrl}/single-color-files/${item}.png?t=${Date.now()}`;
-                        const svgUrl = `${backendUrl}/single-color-files/${item}.svg?t=${Date.now()}`;
-                        
-                        return (
-                          <button
-                            key={item}
-                            className={`flex flex-col items-center p-2 rounded-lg border transition w-full h-28 justify-center ${
-                              selectedIcon === item 
-                                ? 'bg-[#2E5583] text-white font-semibold' 
-                                : darkMode 
-                                  ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                  : 'hover:bg-blue-100 text-gray-700'
-                            }`}
-                            onClick={() => handleSingleColorIconClick(item)}
-                          >
-                            <img
-                              src={svgUrl}
-                              alt={item}
-                              className="w-12 h-12 object-contain mb-1"
-                              onError={(e) => {
-                                // If SVG fails, try PNG
-                                if (e.target.src === svgUrl) {
-                                  e.target.src = pngUrl;
-                                } else {
-                                  e.target.style.display = 'none';
-                                }
-                              }}
-                            />
-                            <span className="text-xs truncate w-full text-center">{item}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
               {filteredItems.length === 0 && searchTerm && (
                 <div className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   No items found matching "{searchTerm}"
@@ -1930,9 +1663,9 @@ function App() {
 
           <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[450px] flex-shrink-0`}>
             <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
-              {activeTab === "colorful-icons" ? "Colorful Icon Options" : activeTab === "single-color" ? "Single Color Options" : "Color Change"}
+              {activeTab === "colorful-icons" ? "Colorful Icon Options" : "Color Change"}
             </h3>
-                          {(selectedIcon || selectedCountry || (isMultiSelectMode && activeTab === "icons" && selectedIcons && selectedIcons.size > 0) || (isMultiSelectMode && activeTab === "flags" && selectedFlags && selectedFlags.size > 0) || (isMultiSelectMode && activeTab === "colorful-icons") || activeTab === "single-color") ? (
+            {(selectedIcon || selectedCountry || (isMultiSelectMode && activeTab === "icons" && selectedIcons && selectedIcons.size > 0) || (isMultiSelectMode && activeTab === "flags" && selectedFlags && selectedFlags.size > 0) || (isMultiSelectMode && activeTab === "colorful-icons")) ? (
               activeTab === "flags" ? (
                 // Flag selection interface
                 <div className="flex flex-col gap-3">
@@ -2095,18 +1828,6 @@ function App() {
                   )}
                   
                 </div>
-              ) : activeTab === "single-color" ? (
-                // Single color icons interface
-                <div className="flex flex-col gap-3">
-                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>
-                    Selected: {selectedIcon}
-                  </div>
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'}`}>
-                    <p className="text-sm">
-                      💡 <strong>Tip:</strong> Single color icons can be recolored entirely. Select a color below to change the entire icon.
-                    </p>
-                  </div>
-                </div>
               ) : (
                 // Icon groups interface
                 <div className="flex flex-col gap-3">
@@ -2242,62 +1963,8 @@ function App() {
               </div>
             )}
 
-            {/* Single Color Picker */}
-            {activeTab === "single-color" && selectedIcon && (
-              <div className="mt-6">
-                <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Color Picker
-                </h4>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {companyColors.map((color) => (
-                    <button
-                      key={color.name}
-                      onClick={() => selectCompanyColor(color.hex)}
-                      className={`p-3 rounded-lg border-2 transition ${
-                        currentColor === color.hex
-                          ? 'border-blue-500 scale-105'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      style={{ backgroundColor: color.hex }}
-                      title={color.name}
-                    />
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={currentColor}
-                    onChange={(e) => selectCompanyColor(e.target.value)}
-                    className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={currentColor}
-                    onChange={(e) => selectCompanyColor(e.target.value)}
-                    className={`flex-1 px-3 py-2 border border-gray-300 rounded ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-900'}`}
-                    placeholder="#000000"
-                  />
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={resetColor}
-                    disabled={loading}
-                    className={`px-4 py-2 rounded-lg transition ${
-                      loading 
-                        ? 'bg-gray-400 cursor-not-allowed' 
-                        : darkMode 
-                          ? 'bg-gray-600 text-white hover:bg-gray-700' 
-                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                    }`}
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Export Options */}
-            {(selectedIcon || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0)) && activeTab !== "flags" && activeTab !== "single-color" && (
+            {(selectedIcon || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0)) && activeTab !== "flags" && (
               <div className="mt-6">
                 <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Export Options
@@ -2323,35 +1990,6 @@ function App() {
                       Copy to Clipboard
                     </button>
                   )}
-                </div>
-              </div>
-            )}
-
-            {/* Export Options for Single Color Icons */}
-            {activeTab === "single-color" && selectedIcon && (
-              <div className="mt-6">
-                <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Export Options
-                </h4>
-                <div className="flex gap-2">
-                  <button
-                    onClick={exportSvg}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
-                  >
-                    Export SVG
-                  </button>
-                  <button
-                    onClick={exportPng}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
-                  >
-                    Export PNG
-                  </button>
-                  <button
-                    onClick={handleCopyAsImage}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
-                  >
-                    Copy to Clipboard
-                  </button>
                 </div>
               </div>
             )}
@@ -2618,11 +2256,9 @@ function App() {
                     {selectedInfographic.title}
                   </h4>
                   <div className="space-y-1 text-sm">
-                    <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'}`}>
-                      <p className="font-semibold">
-                        📍 <span className="font-medium">Find this on Slide:</span> {selectedInfographic.slide_number}
-                      </p>
-                    </div>
+                    <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
+                      <span className="font-medium">Slide:</span> {selectedInfographic.slide_number}
+                    </p>
                     <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
                       <span className="font-medium">Category:</span> {selectedInfographic.category}
                     </p>
@@ -2633,22 +2269,19 @@ function App() {
                 </div>
                 
                 {/* Download Button */}
-                <div className="flex flex-col items-center gap-2">
+                <div className="flex justify-center">
                   <a
-                    href={`${backendUrl}/infographics/${selectedInfographic.filename.replace('.png', '')}/download`}
-                    download="infographics_master.pptx"
+                    href={`/infographics/${selectedInfographic.filename}`}
+                    download={selectedInfographic.filename}
                     className={`px-6 py-3 rounded-lg transition flex items-center gap-2 ${
                       darkMode 
                         ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
                         : 'bg-blue-500 text-white hover:bg-blue-600'
                     }`}
                   >
-                    <span className="text-lg">📊</span>
-                    <span className="font-medium">Download Master PowerPoint</span>
+                    <span className="text-lg">⬇️</span>
+                    <span className="font-medium">Download Infographic</span>
                   </a>
-                  <p className={`text-xs text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Download the complete PowerPoint file and navigate to slide {selectedInfographic.slide_number}
-                  </p>
                 </div>
               </div>
             ) : (
@@ -2675,7 +2308,6 @@ function App() {
                   setShowFeedbackModal(false);
                   setFeedbackType("New Addition");
                   setFeedbackMessage("");
-                  setFeedbackEmail("");
                 }}
                 className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
               >
@@ -2688,8 +2320,7 @@ function App() {
               try {
                 const response = await axios.post(`${backendUrl}/feedback`, {
                   type: feedbackType,
-                  message: feedbackMessage,
-                  email: feedbackEmail
+                  message: feedbackMessage
                 });
                 
                 if (response.data.status === "Feedback submitted successfully") {
@@ -2697,7 +2328,6 @@ function App() {
                   setShowFeedbackModal(false);
                   setFeedbackType("New Addition");
                   setFeedbackMessage("");
-                  setFeedbackEmail("");
                 } else {
                   toast.error("Failed to submit feedback");
                 }
@@ -2731,26 +2361,6 @@ function App() {
               
               <div className="mb-4">
                 <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
-                  Email Address (Optional)
-                </label>
-                <input
-                  type="email"
-                  value={feedbackEmail}
-                  onChange={(e) => setFeedbackEmail(e.target.value)}
-                  placeholder="your.email@example.com"
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none'
-                  }`}
-                />
-                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Provide your email if you'd like to receive a response to your feedback
-                </p>
-              </div>
-              
-              <div className="mb-4">
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
                   Feedback Message
                 </label>
                 <textarea
@@ -2774,7 +2384,6 @@ function App() {
                     setShowFeedbackModal(false);
                     setFeedbackType("New Addition");
                     setFeedbackMessage("");
-                    setFeedbackEmail("");
                   }}
                   className={`flex-1 px-4 py-2 rounded-lg transition ${
                     darkMode 
@@ -2886,41 +2495,23 @@ function App() {
                             </select>
                           </td>
                           <td className="p-2">
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => {
-                                  // Show full message in a toast or alert
-                                  toast.info(feedback.message, {
-                                    autoClose: false,
-                                    closeOnClick: false,
-                                    draggable: true
-                                  });
-                                }}
-                                className={`px-2 py-1 rounded text-xs ${
-                                  darkMode 
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                                }`}
-                              >
-                                View Full
-                              </button>
-                              {feedback.email && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedFeedbackForResponse(feedback);
-                                    setResponseMessage("");
-                                    setShowResponseModal(true);
-                                  }}
-                                  className={`px-2 py-1 rounded text-xs ${
-                                    darkMode 
-                                      ? 'bg-green-600 text-white hover:bg-green-700' 
-                                      : 'bg-green-500 text-white hover:bg-green-600'
-                                  }`}
-                                >
-                                  Respond
-                                </button>
-                              )}
-                            </div>
+                            <button
+                              onClick={() => {
+                                // Show full message in a toast or alert
+                                toast.info(feedback.message, {
+                                  autoClose: false,
+                                  closeOnClick: false,
+                                  draggable: true
+                                });
+                              }}
+                              className={`px-2 py-1 rounded text-xs ${
+                                darkMode 
+                                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                  : 'bg-blue-500 text-white hover:bg-blue-600'
+                              }`}
+                            >
+                              View Full
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -2929,113 +2520,6 @@ function App() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Response Modal */}
-      {showResponseModal && selectedFeedbackForResponse && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-md w-full mx-4`}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                Respond to Feedback
-              </h3>
-              <button
-                onClick={() => {
-                  setShowResponseModal(false);
-                  setSelectedFeedbackForResponse(null);
-                  setResponseMessage("");
-                }}
-                className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-              >
-                <span className="text-xl">✕</span>
-              </button>
-            </div>
-            
-            <div className="mb-4">
-              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                <strong>From:</strong> {selectedFeedbackForResponse.email}
-              </p>
-              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                <strong>Type:</strong> {selectedFeedbackForResponse.type}
-              </p>
-              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                <strong>Message:</strong> {selectedFeedbackForResponse.message}
-              </p>
-            </div>
-            
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                const response = await axios.post(`${backendUrl}/feedback/respond`, {
-                  feedback_id: selectedFeedbackForResponse.id,
-                  response_message: responseMessage
-                });
-                
-                if (response.data.status === "Response sent successfully") {
-                  toast.success("Response sent successfully!");
-                  setShowResponseModal(false);
-                  setSelectedFeedbackForResponse(null);
-                  setResponseMessage("");
-                  
-                  // Refresh feedback list to update status
-                  const feedbackResponse = await axios.get(`${backendUrl}/feedback`);
-                  setAllFeedback(feedbackResponse.data.feedback || []);
-                } else {
-                  toast.error("Failed to send response");
-                }
-              } catch (error) {
-                console.error('Error sending response:', error);
-                toast.error("Failed to send response");
-              }
-            }}>
-              <div className="mb-4">
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
-                  Your Response
-                </label>
-                <textarea
-                  value={responseMessage}
-                  onChange={(e) => setResponseMessage(e.target.value)}
-                  placeholder="Type your response to the user..."
-                  rows={4}
-                  className={`w-full px-3 py-2 border rounded-lg resize-none ${
-                    darkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none'
-                  }`}
-                  required
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowResponseModal(false);
-                    setSelectedFeedbackForResponse(null);
-                    setResponseMessage("");
-                  }}
-                  className={`flex-1 px-4 py-2 rounded-lg transition ${
-                    darkMode 
-                      ? 'bg-gray-600 text-white hover:bg-gray-700' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={`flex-1 px-4 py-2 rounded-lg transition ${
-                    darkMode 
-                      ? 'bg-green-600 text-white hover:bg-green-700' 
-                      : 'bg-green-500 text-white hover:bg-green-600'
-                  }`}
-                >
-                  Send Response
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
