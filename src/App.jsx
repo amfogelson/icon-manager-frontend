@@ -231,6 +231,16 @@ function App() {
         setFlagType("circle");
         const filename = getFlagFilename(itemName, "circle");
         setSvgUrl(`${backendUrl}/flags/${filename}`);
+      } else {
+        // Fallback: try the base name without type specification
+        const baseFilename = `${itemName}.svg`;
+        if (flags.includes(baseFilename)) {
+          setFlagType("rectangle");
+          setSvgUrl(`${backendUrl}/flags/${baseFilename}`);
+        } else {
+          console.error(`No flag found for country: ${itemName}`);
+          toast.error(`Flag not found for ${itemName}`);
+        }
       }
     } else {
       // For icons and colorful icons, use folder-aware logic
@@ -377,25 +387,36 @@ function App() {
 
   const exportSvg = async () => {
     try {
-      // Fetch the SVG content
-      const response = await fetch(svgUrl);
-      const svgContent = await response.text();
+      // Determine the icon name and type
+      let iconName, type, folder;
+      if (activeTab === "flags" && selectedCountry) {
+        iconName = getFlagFilename(selectedCountry, flagType);
+        type = "flag";
+      } else {
+        iconName = selectedIcon + ".svg"; // Append .svg extension for icons
+        type = "icon";
+        folder = currentFolder || "Root";
+      }
+
+      // Call the backend to export SVG
+      const requestData = {
+        icon_name: iconName,
+        type: type
+      };
       
-      // Create a blob with the SVG content
-      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+      if (type === "icon") {
+        requestData.folder = folder;
+      }
       
+      const response = await axios.post(`${backendUrl}/export-svg`, requestData, {
+        responseType: 'blob'
+      });
+
       // Create download link
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = url;
-      
-      // Set filename based on active tab
-      if (activeTab === "flags" && selectedCountry) {
-        const filename = getFlagFilename(selectedCountry, flagType);
-        link.download = filename;
-      } else {
-        link.download = selectedIcon + ".svg"; // Append .svg extension for icons
-      }
+      link.download = iconName;
       
       // Trigger download
       document.body.appendChild(link);
@@ -2015,7 +2036,7 @@ function App() {
 
   useEffect(() => {
     if (activeTab === "single-color") {
-      fetch("/colorful-icons/SingleColor/list.json")
+      fetch(`${backendUrl}/colorful-icons/SingleColor/list.json`)
         .then(res => res.json())
         .then(data => setSingleColorIcons(data.icons || []))
         .catch(() => setSingleColorIcons([]));
