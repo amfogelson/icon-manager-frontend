@@ -4,25 +4,23 @@ import { ReactSVG } from 'react-svg';
 import { SketchPicker } from 'react-color';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { saveAs } from 'file-saver';
-import './App.css';
 
 let debounceTimer = null;
 
-// Add Navbar component at the top of the App function
-function Navbar({ activeTab, setActiveTab, setShowFeedbackModal, darkMode }) {
+// Top Navigation Component
+function TopNavigation({ currentPage, setCurrentPage, darkMode, setDarkMode, setShowFeedbackModal, isAdmin, backendUrl, setAllFeedback, setShowFeedbackAdmin }) {
   return (
     <nav className={`w-full px-4 py-3 flex items-center justify-between shadow-md ${darkMode ? 'bg-gray-900' : 'bg-white'} mb-4`}>
       <div className="flex items-center gap-6">
         <button
-          className={`font-semibold text-lg transition-colors ${activeTab === 'icons' ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-white' : 'text-gray-700')}`}
-          onClick={() => setActiveTab('icons')}
+          className={`font-semibold text-lg transition-colors ${currentPage === 'icons' ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-white' : 'text-gray-700')}`}
+          onClick={() => setCurrentPage('icons')}
         >
           Icons
         </button>
         <button
-          className={`font-semibold text-lg transition-colors ${activeTab === 'infographics' ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-white' : 'text-gray-700')}`}
-          onClick={() => setActiveTab('infographics')}
+          className={`font-semibold text-lg transition-colors ${currentPage === 'infographics' ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-white' : 'text-gray-700')}`}
+          onClick={() => setCurrentPage('infographics')}
         >
           Infographics
         </button>
@@ -33,11 +31,44 @@ function Navbar({ activeTab, setActiveTab, setShowFeedbackModal, darkMode }) {
           Feedback
         </button>
       </div>
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => setDarkMode(!darkMode)}
+          className={`p-2 rounded-lg transition ${darkMode ? 'bg-[#2E5583] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+        >
+          {darkMode ? '☀️' : '🌙'}
+        </button>
+        {isAdmin && (
+          <button
+            onClick={async () => {
+              try {
+                const response = await axios.get(`${backendUrl}/feedback`);
+                setAllFeedback(response.data.feedback || []);
+                setShowFeedbackAdmin(true);
+              } catch (error) {
+                console.error('Error loading feedback:', error);
+                toast.error("Failed to load feedback");
+              }
+            }}
+            className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-500 text-white hover:bg-red-600'}`}
+            title="View All Feedback (Admin)"
+          >
+            <span className="text-lg">📊</span>
+            <span className="text-sm font-medium">View Feedback</span>
+          </button>
+        )}
+      </div>
     </nav>
   );
 }
 
 function App() {
+  console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
+  
+  // Page navigation state
+  const [currentPage, setCurrentPage] = useState("icons"); // "icons" or "infographics"
+  
+  // Icons page state
   const [icons, setIcons] = useState([]);
   const [flags, setFlags] = useState([]);
   const [folders, setFolders] = useState({});
@@ -66,41 +97,25 @@ function App() {
   const [selectedColorfulIconsWithFolders, setSelectedColorfulIconsWithFolders] = useState(new Map());
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Toggle multi-select mode
   const [isGreyscale, setIsGreyscale] = useState(false); // Track if current icon is greyscale
-  const [iconListView, setIconListView] = useState("grid"); // 'list' or 'grid'
+  const [iconListView, setIconListView] = useState("list"); // 'list' or 'grid'
+  
+  // Feedback state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackType, setFeedbackType] = useState("New Addition");
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [showFeedbackAdmin, setShowFeedbackAdmin] = useState(false);
   const [allFeedback, setAllFeedback] = useState([]);
-  const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN?.toLowerCase() === 'true'); // Only true if you set the env var
-  const [showLlama, setShowLlama] = useState(false);
-  const llamaTimeoutRef = React.useRef(null);
+  const [isAdmin, setIsAdmin] = useState(import.meta.env.VITE_IS_ADMIN === 'true'); // Only true if you set the env var
+  
+  // Infographics state
   const [infographics, setInfographics] = useState([]);
-  const [infographicSearch, setInfographicSearch] = useState("");
   const [selectedInfographic, setSelectedInfographic] = useState(null);
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('All');
-  const [showInfographicsAdmin, setShowInfographicsAdmin] = useState(false);
-  
-  // State for managing categories
-  const [availableCategories, setAvailableCategories] = useState([
-    'Business', 'Business2', 'Technology', 'Military', 'HADR', 
-    'Infrastructure', 'Maritime', 'Drone'
-  ]);
-  
-  // State for upload form
-  const [uploadForm, setUploadForm] = useState({
-    filename: '',
-    title: '',
-    slideNumber: '',
-    category: ''
-  });
-
-  // 1. Add state for singleColorIcons
-  const [singleColorIcons, setSingleColorIcons] = useState([]);
+  const [infographicSearch, setInfographicSearch] = useState("");
+  const [infographicCategory, setInfographicCategory] = useState('All');
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-//Trigger redeploy
+
+  // Trigger redeploy
   useEffect(() => {
     setIsLoading(true);
     axios.get(`${backendUrl}/icons`)
@@ -143,11 +158,24 @@ function App() {
     axios.get(`${backendUrl}/flags`)
       .then(res => setFlags(res.data.flags))
       .catch(err => console.error(err));
-    
-    // Fetch infographics list - COMMENTED OUT: Using mapping.json instead
-    // axios.get(`${backendUrl}/infographics`)
-    //   .then(res => setInfographics(res.data.infographics || []))
-    //   .catch(err => console.error(err));
+  }, []);
+
+  // Load infographics data
+  useEffect(() => {
+    fetch('/infographics/mapping.json')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setInfographics(data);
+        } else {
+          setInfographics([]);
+          console.error('mapping.json is not an array:', data);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load mapping.json:', err);
+        setInfographics([]);
+      });
   }, []);
 
   // Inject custom CSS for color picker dark mode
@@ -231,16 +259,6 @@ function App() {
         setFlagType("circle");
         const filename = getFlagFilename(itemName, "circle");
         setSvgUrl(`${backendUrl}/flags/${filename}`);
-      } else {
-        // Fallback: try the base name without type specification
-        const baseFilename = `${itemName}.svg`;
-        if (flags.includes(baseFilename)) {
-          setFlagType("rectangle");
-          setSvgUrl(`${backendUrl}/flags/${baseFilename}`);
-        } else {
-          console.error(`No flag found for country: ${itemName}`);
-          toast.error(`Flag not found for ${itemName}`);
-        }
       }
     } else {
       // For icons and colorful icons, use folder-aware logic
@@ -293,7 +311,7 @@ function App() {
     setLocalPreviewColor(currentColor);
   };
 
-  const applyColorChange = useCallback((colorToApply, showToast = true) => {
+  const applyColorChange = useCallback((colorToApply) => {
     if (activeTab === "flags") {
       // For flags, apply color to the entire SVG
       setLoading(true);
@@ -308,15 +326,11 @@ function App() {
         const baseUrl = activeTab === "icons" ? `${backendUrl}/static` : `${backendUrl}/flags`;
         setSvgUrl(`${baseUrl}/${selectedIcon}?t=${Date.now()}`);
         setLoading(false);
-        if (showToast) {
-          toast.success("Color updated");
-        }
+        toast.success("Color updated");
       }).catch(err => {
         console.error(err);
         setLoading(false);
-        if (showToast) {
-          toast.error("Failed to update color.");
-        }
+        toast.error("Failed to update color.");
       });
     } else {
       // For icons, apply color to specific group
@@ -346,15 +360,11 @@ function App() {
           setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
         }
         setLoading(false);
-        if (showToast) {
-          toast.success("Color updated");
-        }
+        toast.success("Color updated");
       }).catch(err => {
         console.error(err);
         setLoading(false);
-        if (showToast) {
-          toast.error("Failed to update color.");
-        }
+        toast.error("Failed to update color.");
       });
     }
   }, [selectedIcon, selectedGroup, activeTab, currentFolder]);
@@ -367,56 +377,31 @@ function App() {
     if (debounceTimer) clearTimeout(debounceTimer);
 
     debounceTimer = setTimeout(() => {
-      applyColorChange(hex, false); // Don't show toast during sliding
+      applyColorChange(hex);
     }, 500); // still debounce backend call
   };
 
-  const handleColorInputChange = (e) => {
-    const hex = e.target.value;
-    setCurrentColor(hex);
-    setLocalPreviewColor(hex);
-
-    if (debounceTimer) clearTimeout(debounceTimer);
-
-    debounceTimer = setTimeout(() => {
-      applyColorChange(hex, false); // Don't show toast during typing
-    }, 500);
-  };
-
-
-
   const exportSvg = async () => {
     try {
-      // Determine the icon name and type
-      let iconName, type, folder;
-      if (activeTab === "flags" && selectedCountry) {
-        iconName = getFlagFilename(selectedCountry, flagType);
-        type = "flag";
-      } else {
-        iconName = selectedIcon + ".svg"; // Append .svg extension for icons
-        type = "icon";
-        folder = currentFolder || "Root";
-      }
-
-      // Call the backend to export SVG
-      const requestData = {
-        icon_name: iconName,
-        type: type
-      };
+      // Fetch the SVG content
+      const response = await fetch(svgUrl);
+      const svgContent = await response.text();
       
-      if (type === "icon") {
-        requestData.folder = folder;
-      }
+      // Create a blob with the SVG content
+      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
       
-      const response = await axios.post(`${backendUrl}/export-svg`, requestData, {
-        responseType: 'blob'
-      });
-
       // Create download link
-      const url = window.URL.createObjectURL(response.data);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = iconName;
+      
+      // Set filename based on active tab
+      if (activeTab === "flags" && selectedCountry) {
+        const filename = getFlagFilename(selectedCountry, flagType);
+        link.download = filename;
+      } else {
+        link.download = selectedIcon + ".svg"; // Append .svg extension for icons
+      }
       
       // Trigger download
       document.body.appendChild(link);
@@ -622,67 +607,6 @@ function App() {
     }
   };
 
-  const exportAsZip = async (format = "svg") => {
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-      let selectedItems = [];
-      if (activeTab === "icons") {
-        selectedItems = Array.from(selectedIcons || []);
-      } else if (activeTab === "colorful-icons") {
-        selectedItems = Array.from(selectedColorfulIcons || []);
-      } else if (activeTab === "flags") {
-        selectedItems = Array.from(selectedFlags || []);
-      }
-      
-      if (selectedItems.length === 0) {
-        toast.error("No items selected for export");
-        return;
-      }
-      
-      const folderPath = currentFolder || "Root";
-      
-      // Determine the type for the backend
-      let type;
-      if (activeTab === "flags") {
-        type = "flag";
-      } else if (activeTab === "colorful-icons") {
-        type = "colorful-icon";
-      } else {
-        type = "icon";
-      }
-      
-      const requestData = {
-        items: selectedItems,
-        type: type,
-        folder: folderPath,
-        format: format
-      };
-      
-      const response = await axios.post(`${backendUrl}/export-zip`, requestData, {
-        responseType: 'blob'
-      });
-      
-      // Create download link
-      const url = window.URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `icons_${format}_${Date.now()}.zip`;
-      
-      // Trigger download
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      toast.success(`ZIP file with ${selectedItems.length} ${format.toUpperCase()} files downloaded successfully!`);
-    } catch (error) {
-      console.error('Error downloading ZIP:', error);
-      toast.error("Failed to download ZIP file");
-    }
-  };
-
   const resetColor = async () => {
     if (activeTab === "flags") {
       // For flags, reset entire flag
@@ -766,7 +690,7 @@ function App() {
   const selectCompanyColor = (color) => {
     setCurrentColor(color);
     setLocalPreviewColor(color);
-    applyColorChange(color, true); // Show toast for company color selection
+    applyColorChange(color);
   };
 
   // Company colors - customize these with your actual brand colors
@@ -1312,19 +1236,19 @@ function App() {
     setSelectedIcon(result.name);
     setCurrentFolder(result.folder);
     
-    // Set the appropriate SVG URL based on the active tab
+    // Set the appropriate SVG URL based on the result type
     let svgUrlToSet;
-    if (activeTab === "icons") {
+    if (result.type === 'icon') {
       svgUrlToSet = result.folder === "Root" 
         ? `${backendUrl}/static/${result.name}.svg`
         : `${backendUrl}/static-icons/${result.folder}/${result.name}.svg`;
       loadGroups(result.name, result.folder);
-    } else if (activeTab === "colorful-icons") {
+    } else if (result.type === 'colorful-icon') {
       svgUrlToSet = result.folder === "Root" 
         ? `${backendUrl}/colorful-icons/${result.name}.svg`
         : `${backendUrl}/colorful-icons/${result.folder}/${result.name}.svg`;
       setIsGreyscale(false); // Reset greyscale state for colorful icon
-    } else if (activeTab === "flags") {
+    } else if (result.type === 'flag') {
       svgUrlToSet = `${backendUrl}/flags/${result.name}.svg`;
       loadGroups(result.name, "flags");
     }
@@ -1354,711 +1278,64 @@ function App() {
 
   const handleCopyAsImage = async () => {
     try {
-      if (!svgUrl) {
+      let url = svgUrl;
+      if (!url) {
         toast.error("No SVG to copy as image");
         return;
       }
-
-      console.log('Copy as image - URL:', svgUrl);
-
-      // Check if clipboard API is supported
-      if (!navigator.clipboard || !navigator.clipboard.write) {
-        toast.error("Clipboard API not supported in this browser");
-        return;
-      }
-
-      console.log('Clipboard API supported, fetching SVG...');
-      
-      // Use the new CORS-enabled endpoint instead of direct URL
-      let corsUrl;
-      if (activeTab === "flags" && selectedCountry) {
-        corsUrl = `${backendUrl}/svg/flag/Root/${getFlagFilename(selectedCountry, flagType)}`;
-      } else if (activeTab === "colorful-icons") {
-        const folderPath = currentFolder || "Root";
-        corsUrl = `${backendUrl}/svg/colorful-icon/${folderPath}/${selectedIcon}.svg`;
-      } else {
-        const folderPath = currentFolder || "Root";
-        corsUrl = `${backendUrl}/svg/icon/${folderPath}/${selectedIcon}.svg`;
-      }
-      
-      console.log('Using CORS-enabled URL:', corsUrl);
-      const response = await fetch(corsUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch SVG: ${response.status}`);
-      }
-      
+      const response = await fetch(url);
       const svgText = await response.text();
-      console.log('SVG fetched, length:', svgText.length);
-      
       // Create an image from SVG
-      const img = new Image();
+      const img = new window.Image();
       const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
       const urlObj = URL.createObjectURL(svgBlob);
-      
-      return new Promise((resolve, reject) => {
-        img.onload = async () => {
-          try {
-            // Create a canvas that maintains the SVG's aspect ratio
-            const canvas = document.createElement('canvas');
-            const maxSize = 512; // Maximum dimension
-            
-            // Calculate dimensions to maintain aspect ratio
-            const aspectRatio = img.width / img.height;
-            let canvasWidth, canvasHeight;
-            
-            if (aspectRatio > 1) {
-              // Width is greater than height
-              canvasWidth = maxSize;
-              canvasHeight = maxSize / aspectRatio;
-            } else {
-              // Height is greater than or equal to width
-              canvasHeight = maxSize;
-              canvasWidth = maxSize * aspectRatio;
+      img.src = urlObj;
+      img.onload = async () => {
+        try {
+          // Create a canvas with the same size as the SVG image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width || 512;
+          canvas.height = img.height || 512;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Convert canvas to blob
+          canvas.toBlob(async (blob) => {
+            try {
+              if (!blob) throw new Error('Failed to create PNG blob');
+              await navigator.clipboard.write([
+                new window.ClipboardItem({ 'image/png': blob })
+              ]);
+              toast.success('Image copied to clipboard!');
+            } catch (err) {
+              console.error('Clipboard write failed:', err);
+              toast.error('Failed to copy image');
             }
-            
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-            
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              throw new Error('Failed to get canvas context');
-            }
-            
-            // Clear the canvas (transparent background)
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw the SVG image maintaining aspect ratio
-            ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
-            
-            // Convert canvas to blob
-            canvas.toBlob(async (blob) => {
-              try {
-                if (!blob) {
-                  throw new Error('Failed to create PNG blob');
-                }
-                
-                // Try to write to clipboard
-                await navigator.clipboard.write([
-                  new ClipboardItem({ 'image/png': blob })
-                ]);
-                
-                toast.success('Image copied to clipboard!');
-                resolve();
-              } catch (clipboardError) {
-                console.error('Clipboard write failed:', clipboardError);
-                
-                // Fallback: try to copy as data URL
-                try {
-                  const dataUrl = canvas.toDataURL('image/png');
-                  await navigator.clipboard.writeText(dataUrl);
-                  toast.success('Image data URL copied to clipboard!');
-                  resolve();
-                } catch (fallbackError) {
-                  console.error('Fallback copy failed:', fallbackError);
-                  toast.error('Failed to copy image - browser may not support image copying');
-                  reject(fallbackError);
-                }
-              }
-            }, 'image/png', 1.0);
-          } catch (error) {
-            console.error('Canvas processing error:', error);
-            toast.error('Failed to process image');
-            reject(error);
-          } finally {
-            URL.revokeObjectURL(urlObj);
-          }
-        };
-        
-        img.onerror = (e) => {
+          }, 'image/png');
+        } finally {
           URL.revokeObjectURL(urlObj);
-          console.error('Failed to load SVG for image copy:', e);
-          toast.error('Failed to load SVG for image copy');
-          reject(e);
-        };
-        
-        img.src = urlObj;
-      });
+        }
+      };
+      img.onerror = (e) => {
+        URL.revokeObjectURL(urlObj);
+        toast.error('Failed to load SVG for image copy');
+      };
     } catch (error) {
       console.error('Error copying as image:', error);
       toast.error('Failed to copy as image');
     }
   };
 
-  const triggerLlama = () => {
-    setShowLlama(true);
-    if (llamaTimeoutRef.current) clearTimeout(llamaTimeoutRef.current);
-    llamaTimeoutRef.current = setTimeout(() => setShowLlama(false), 3000);
-  };
-
-  useEffect(() => {
-    fetch('/infographics/mapping.json')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setInfographics(data);
-        } else {
-          setInfographics([]);
-          console.error('mapping.json is not an array:', data);
-        }
-      })
-      .catch(err => {
-        console.error('Failed to load mapping.json:', err);
-        setInfographics([]);
-      });
-  }, []);
-
-  // Derive categories from infographics
-  const categories = ['All', ...Array.from(new Set(infographics.map(i => i.category).filter(Boolean)))];
-  const adminCategories = Array.from(new Set(infographics.map(i => i.category).filter(Boolean)));
-  
-  console.log('Infographics loaded:', infographics.length);
-  console.log('Categories derived:', categories);
-  console.log('Admin categories:', adminCategories);
-
-  const filtered = infographics.filter(i =>
-    (category === 'All' || i.category === category) &&
-    (typeof i.title === 'string' && i.title.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  // Infographics gallery and preview panel layout
-  if (activeTab === "infographics") {
-    return (
-      <div
-        className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}
-        style={{
-          backgroundImage: darkMode
-            ? 'linear-gradient(rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.84)), url(/icons2.jpg)'
-            : 'linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), url(/icons2.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-        }}
-      >
-        <Navbar activeTab={activeTab} setActiveTab={setActiveTab} setShowFeedbackModal={setShowFeedbackModal} darkMode={darkMode} />
-        <div className="container mx-auto px-4 py-8">
-          {/* Header */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-10 rounded-xl shadow-lg max-w-6xl mx-auto mb-8`}>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <img src="/Icon Manager.svg" alt="Icon Manager Logo" className="w-10 h-10 mr-2" />
-                <div>
-                  <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Icon Manager</h1>
-                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Manage and customize your icons</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  className={`p-2 rounded-lg transition ${darkMode ? 'bg-[#2E5583] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                >
-                  {darkMode ? '☀️' : '🌙'}
-                </button>
-                <button
-                  onClick={() => setShowFeedbackModal(true)}
-                  className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                  title="Submit Feedback"
-                >
-                  <span className="text-lg">💬</span>
-                  <span className="text-sm font-medium">Feedback</span>
-                </button>
-                {isAdmin && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await axios.get(`${backendUrl}/feedback`);
-                        setAllFeedback(response.data.feedback || []);
-                        setShowFeedbackAdmin(true);
-                      } catch (error) {
-                        console.error('Error loading feedback:', error);
-                        toast.error("Failed to load feedback");
-                      }
-                    }}
-                    className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-red-500 text-white hover:bg-red-600'}`}
-                    title="View All Feedback (Admin)"
-                  >
-                    <span className="text-lg">📊</span>
-                    <span className="text-sm font-medium">View Feedback</span>
-                  </button>
-                )}
-                {isAdmin && (
-                  <button
-                    className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-green-500 text-white hover:bg-green-600'}`}
-                    title="Manage Infographics (Admin)"
-                  >
-                    <span className="text-lg">📁</span>
-                    <span className="text-sm font-medium">Manage Infographics</span>
-                  </button>
-                )}
-
-                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>© 2025</div>
-              </div>
-            </div>
-          </div>
-          {/* Main Content: Two Panels */}
-          <div className="flex gap-8">
-            {/* Left Panel - Infographics List */}
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[400px] flex-shrink-0`}>
-              <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>Infographics</h3>
-              {/* Search Input */}
-              <div className="mb-4">
-                {Array.isArray(categories) && categories.length > 0 ? (
-                  <>
-                    {console.log('Categories array:', categories)}
-                    <select
-                      value={category}
-                      onChange={e => setCategory(e.target.value)}
-                      className={`w-full px-3 py-2 rounded-lg border transition-colors ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                    >
-                      {[...new Set(categories)].map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </>
-                ) : (
-                  <select disabled className={`w-full px-3 py-2 rounded-lg border transition-colors ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
-                    <option>Loading categories...</option>
-                  </select>
-                )}
-              </div>
-              {/* Category Filter */}
-              {/* Thumbnails List */}
-              <div className="flex flex-col gap-3 max-h-[360px] overflow-y-auto">
-                {filtered.length === 0 && (
-                  <div className={`text-sm text-center py-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No infographics found.</div>
-                )}
-                {filtered.map(i => (
-                  <button
-                    key={i.filename}
-                    className={`flex items-center gap-3 p-2 rounded-lg transition border border-gray-500 text-left ${selectedInfographic && selectedInfographic.filename === i.filename ? (darkMode ? 'bg-[#2E5583] text-white font-semibold border-[#2E5583]' : 'bg-blue-100 text-blue-800 font-semibold border-blue-600') : (darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700')}`}
-                    onClick={() => setSelectedInfographic(i)}
-                  >
-                    <img
-                      src={`/infographics/${i.filename}`}
-                      alt={i.title}
-                      className="w-16 h-16 object-contain rounded bg-gray-100"
-                      onError={e => {
-                        if (!e.target.src.includes('via.placeholder.com')) {
-                          e.target.onerror = null; // Prevent infinite loop
-                          e.target.src = 'https://via.placeholder.com/64x64?text=No+Image';
-                        }
-                      }}
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{i.title}</span>
-                      <span className="text-xs text-gray-400">Slide: {i.slide_number}</span>
-                      <span className="text-xs text-gray-400">Category: {i.category}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* Right Panel - Preview */}
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} flex-1 p-8 shadow rounded-xl flex flex-col items-center justify-center`}>
-              {selectedInfographic ? (
-                <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
-                  <h2 className="text-2xl font-bold mb-4">{selectedInfographic.title}</h2>
-                  <img
-                    src={`/infographics/${selectedInfographic.filename}`}
-                    alt={selectedInfographic.title}
-                    className="w-full max-h-[400px] object-contain rounded bg-gray-100"
-                    onError={e => {
-                      if (!e.target.src.includes('via.placeholder.com')) {
-                        e.target.onerror = null; // Prevent infinite loop
-                        e.target.src = 'https://via.placeholder.com/400x200?text=No+Image';
-                      }
-                    }}
-                  />
-                  <div className="mt-4 text-lg">Slide: {selectedInfographic.slide_number}</div>
-                  <div className="text-sm text-gray-400 mb-4">Category: {selectedInfographic.category}</div>
-                  <a
-                    href="/infographics/infographics_master.pptx"
-                    download
-                    className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
-                  >
-                    Download Master Infographics PPTX
-                  </a>
-                  <div className="mt-4 text-sm text-gray-500">
-                    <b>How to Jump to a Slide:</b> In PowerPoint, press <b>Ctrl+G</b>, enter the slide number, and press <b>Enter</b>.
-                  </div>
-                </div>
-              ) : (
-                <div className="text-gray-400 text-xl">Select an infographic to preview</div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Infographics Admin Modal - Inside Infographics Page */}
-        {showInfographicsAdmin && (
-          <>
-            {console.log('Rendering infographics admin modal - INFOGRAPHICS PAGE MODAL')}
-            {console.log('Infographics page modal adminCategories:', adminCategories)}
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-              style={{ zIndex: 9999 }}
-            >
-              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-6xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col`}>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    Manage Infographics ({infographics.length})
-                  </h3>
-                  <button
-                    onClick={() => setShowInfographicsAdmin(false)}
-                    className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-                  >
-                    <span className="text-xl">✕</span>
-                  </button>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto">
-                  {/* Upload Section */}
-                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      Upload New Infographic
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                      <input
-                        type="file"
-                        accept=".png,.jpg,.jpeg"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            console.log('File selected:', file.name);
-                            setUploadForm(prev => ({ ...prev, filename: file.name }));
-                          }
-                        }}
-                        className={`px-3 py-2 rounded-lg border transition-colors ${
-                          darkMode 
-                            ? 'bg-gray-600 border-gray-500 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Title"
-                        value={uploadForm.title}
-                        onChange={(e) => {
-                          setUploadForm(prev => ({ ...prev, title: e.target.value }));
-                        }}
-                        className={`px-3 py-2 rounded-lg border transition-colors ${
-                          darkMode 
-                            ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
-                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                        }`}
-                      />
-                      <input
-                        type="number"
-                        placeholder="Slide Number"
-                        value={uploadForm.slideNumber}
-                        onChange={(e) => {
-                          setUploadForm(prev => ({ ...prev, slideNumber: e.target.value }));
-                        }}
-                        className={`px-3 py-2 rounded-lg border transition-colors ${
-                          darkMode 
-                            ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
-                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                        }`}
-                      />
-                                            <div className="flex gap-2">
-                        <select
-                          value={uploadForm.category}
-                          onChange={e => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
-                          className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
-                            darkMode 
-                              ? 'bg-gray-600 border-gray-500 text-white' 
-                              : 'bg-white border-gray-300 text-gray-900'
-                          }`}
-                        >
-                          <option value="">Select Category</option>
-                          {console.log('Rendering upload select with categories:', adminCategories)}
-                          {console.log('adminCategories length:', adminCategories.length)}
-                          {adminCategories.map((cat, index) => {
-                            console.log(`Rendering option ${index}:`, cat);
-                            return <option key={cat} value={cat}>{cat}</option>;
-                          })}
-                        </select>
-                        <button
-                          onClick={() => {
-                            const newCategory = prompt('Enter new category name:');
-                            if (newCategory && newCategory.trim()) {
-                              if (adminCategories.includes(newCategory)) {
-                                toast.error('Category already exists!');
-                              } else {
-                                setUploadForm(prev => ({ ...prev, category: newCategory }));
-                                toast.success(`New category "${newCategory}" added! You can now upload an infographic with this category.`);
-                              }
-                            }
-                          }}
-                          className={`px-3 py-2 rounded-lg transition ${
-                            darkMode 
-                              ? 'bg-purple-600 text-white hover:bg-purple-700' 
-                              : 'bg-purple-500 text-white hover:bg-purple-600'
-                          }`}
-                          title="Add New Category"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        console.log('Upload button clicked, form data:', uploadForm);
-                        
-                        // Validate inputs
-                        if (!uploadForm.filename) {
-                          toast.error('Please select a file');
-                          return;
-                        }
-                        if (!uploadForm.title || !uploadForm.title.trim()) {
-                          toast.error('Please enter a title');
-                          return;
-                        }
-                        if (!uploadForm.slideNumber || parseInt(uploadForm.slideNumber) < 1) {
-                          toast.error('Please enter a valid slide number');
-                          return;
-                        }
-                        if (!uploadForm.category) {
-                          toast.error('Please select a category');
-                          return;
-                        }
-                        
-                        // Check if filename already exists
-                        if (infographics.some(inf => inf.filename === uploadForm.filename)) {
-                          toast.error('A file with this name already exists');
-                          return;
-                        }
-                        
-                        // Add the new infographic
-                        const newInfographic = {
-                          filename: uploadForm.filename,
-                          title: uploadForm.title,
-                          slide_number: parseInt(uploadForm.slideNumber),
-                          category: uploadForm.category
-                        };
-                        
-                        console.log('Adding new infographic:', newInfographic);
-                        setInfographics(prev => [...prev, newInfographic]);
-                        
-                        // Clear the form
-                        setUploadForm({
-                          filename: '',
-                          title: '',
-                          slideNumber: '',
-                          category: ''
-                        });
-                        
-                        toast.success(`Infographic "${uploadForm.title}" added successfully!`);
-                      }}
-                      className={`mt-3 px-4 py-2 rounded-lg transition ${
-                        darkMode 
-                          ? 'bg-green-600 text-white hover:bg-green-700' 
-                          : 'bg-green-500 text-white hover:bg-green-600'
-                      }`}
-                    >
-                      Upload Infographic
-                    </button>
-                  </div>
-
-                  {/* Current Infographics List */}
-                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      Current Infographics ({infographics.length})
-                    </h4>
-                    <div className="overflow-x-auto">
-                      <table className={`w-full ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                        <thead>
-                          <tr className={`border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                            <th className="text-left p-2">Thumbnail</th>
-                            <th className="text-left p-2">Filename</th>
-                            <th className="text-left p-2">Title</th>
-                            <th className="text-left p-2">Slide</th>
-                            <th className="text-left p-2">Category</th>
-                            <th className="text-left p-2">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {infographics.map((infographic, index) => (
-                            <tr key={infographic.filename} className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                              <td className="p-2">
-                                <img
-                                  src={`/infographics/${infographic.filename}`}
-                                  alt={infographic.title}
-                                  className="w-12 h-12 object-contain rounded bg-gray-100"
-                                  onError={e => {
-                                    if (!e.target.src.includes('via.placeholder.com')) {
-                                      e.target.onerror = null;
-                                      e.target.src = 'https://via.placeholder.com/48x48?text=No+Image';
-                                    }
-                                  }}
-                                />
-                              </td>
-                              <td className="p-2 font-mono text-sm">{infographic.filename}</td>
-                              <td className="p-2">
-                                <input
-                                  type="text"
-                                  value={infographic.title}
-                                  onChange={(e) => {
-                                    const newInfographics = [...infographics];
-                                    newInfographics[index].title = e.target.value;
-                                    setInfographics(newInfographics);
-                                  }}
-                                  className={`px-2 py-1 rounded border text-sm ${
-                                    darkMode 
-                                      ? 'bg-gray-600 border-gray-500 text-white' 
-                                      : 'bg-white border-gray-300 text-gray-900'
-                                  }`}
-                                />
-                              </td>
-                              <td className="p-2">
-                                <input
-                                  type="number"
-                                  value={infographic.slide_number}
-                                  onChange={(e) => {
-                                    const newInfographics = [...infographics];
-                                    newInfographics[index].slide_number = parseInt(e.target.value);
-                                    setInfographics(newInfographics);
-                                  }}
-                                  className={`px-2 py-1 rounded border text-sm w-16 ${
-                                    darkMode 
-                                      ? 'bg-gray-600 border-gray-500 text-white' 
-                                      : 'bg-white border-gray-300 text-gray-900'
-                                  }`}
-                                />
-                              </td>
-                              <td className="p-2">
-                                <select
-                                  value={infographic.category}
-                                  onChange={e => {
-                                    const newInfographics = [...infographics];
-                                    newInfographics[index].category = e.target.value;
-                                    setInfographics(newInfographics);
-                                  }}
-                                  className={`px-2 py-1 rounded border text-sm ${
-                                    darkMode 
-                                      ? 'bg-gray-600 border-gray-500 text-white' 
-                                      : 'bg-white border-gray-300 text-gray-900'
-                                  }`}
-                                >
-                                  {console.log('Rendering table dropdown with categories:', adminCategories)}
-                                  {adminCategories.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="p-2">
-                                <button
-                                  onClick={() => {
-                                    const newInfographics = infographics.filter((_, i) => i !== index);
-                                    setInfographics(newInfographics);
-                                  }}
-                                  className={`px-2 py-1 rounded text-xs ${
-                                    darkMode 
-                                      ? 'bg-red-600 text-white hover:bg-red-700' 
-                                      : 'bg-red-500 text-white hover:bg-red-600'
-                                  }`}
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Download Section */}
-                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      Export/Import
-                    </h4>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => {
-                          const dataStr = JSON.stringify(infographics, null, 2);
-                          const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                          const url = URL.createObjectURL(dataBlob);
-                          const link = document.createElement('a');
-                          link.href = url;
-                          link.download = 'mapping.json';
-                          link.click();
-                          URL.revokeObjectURL(url);
-                        }}
-                        className={`px-4 py-2 rounded-lg transition ${
-                          darkMode 
-                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                            : 'bg-blue-500 text-white hover:bg-blue-600'
-                        }`}
-                      >
-                        Download mapping.json
-                      </button>
-                      <button
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = '.json';
-                          input.onchange = (e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (e) => {
-                                try {
-                                  const data = JSON.parse(e.target.result);
-                                  setInfographics(data);
-                                  toast.success('Infographics data imported successfully');
-                                } catch (error) {
-                                  toast.error('Invalid JSON file');
-                                }
-                              };
-                              reader.readAsText(file);
-                            }
-                          };
-                          input.click();
-                        }}
-                        className={`px-4 py-2 rounded-lg transition ${
-                          darkMode 
-                            ? 'bg-green-600 text-white hover:bg-green-700' 
-                            : 'bg-green-500 text-white hover:bg-green-600'
-                        }`}
-                      >
-                        Import mapping.json
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  useEffect(() => {
-    if (activeTab === "single-color") {
-      fetch(`${backendUrl}/colorful-icons/SingleColor/list.json`)
-        .then(res => res.json())
-        .then(data => setSingleColorIcons(data.icons || []))
-        .catch(() => setSingleColorIcons([]));
-    } else {
-      setSingleColorIcons([]); // Clear when not on single-color tab
-    }
-  }, [activeTab]);
-
   return (
-    <div
-      className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}
-      style={{
-        backgroundImage: darkMode
-          ? 'linear-gradient(rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.84)), url(/icons2.jpg)'
-          : 'linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), url(/icons2.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      {/* Navigation Bar */}
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} setShowFeedbackModal={setShowFeedbackModal} darkMode={darkMode} />
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`} 
+         style={{
+           backgroundImage: darkMode 
+             ? 'linear-gradient(rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.84)), url(/icons2.jpg)' 
+             : 'linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), url(/icons2.jpg)',
+           backgroundSize: 'cover',
+           backgroundPosition: 'center',
+           backgroundAttachment: 'fixed'
+         }}>
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -2071,6 +1348,20 @@ function App() {
         pauseOnHover
         transition={Slide}
       />
+      
+      {/* Top Navigation */}
+      <TopNavigation 
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        setShowFeedbackModal={setShowFeedbackModal}
+        isAdmin={isAdmin}
+        backendUrl={backendUrl}
+        setAllFeedback={setAllFeedback}
+        setShowFeedbackAdmin={setShowFeedbackAdmin}
+      />
+      
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-10 rounded-xl shadow-lg max-w-6xl mx-auto mb-8`}>
@@ -2079,90 +1370,54 @@ function App() {
               <img src="/Icon Manager.svg" alt="Icon Manager Logo" className="w-10 h-10 mr-2" />
               <div>
                 <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Icon Manager
+                  {currentPage === "icons" ? "Icon Manager" : "Infographics Manager"}
                 </h1>
-                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>Manage and customize your icons</p>
+                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>
+                  {currentPage === "icons" ? "Manage and customize your icons" : "Browse and download infographics"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-6">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  className={`p-2 rounded-lg transition ${darkMode ? 'bg-[#2E5583] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                >
-                  {darkMode ? '☀️' : '🌙'}
-                </button>
-                
-                {/* Feedback Button */}
-                <button
-                  onClick={() => setShowFeedbackModal(true)}
-                  className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
-                    darkMode 
-                      ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                  title="Submit Feedback"
-                >
-                  <span className="text-lg">💬</span>
-                  <span className="text-sm font-medium">Feedback</span>
-                </button>
-                
-                {/* Admin Infographics Button */}
-                {isAdmin && (
+              {currentPage === "icons" && (
+                <>
+                  {/* Multi-select toggle */}
                   <button
-                    onClick={() => {
-                      console.log('Manage Infographics button clicked from main header');
-                      setShowInfographicsAdmin(true);
-                      console.log('showInfographicsAdmin set to true from main header');
-                    }}
+                    onClick={toggleMultiSelectMode}
                     className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
-                      darkMode 
-                        ? 'bg-green-600 text-white hover:bg-green-700' 
-                        : 'bg-green-500 text-white hover:bg-green-600'
+                      isMultiSelectMode 
+                        ? 'bg-blue-600 text-white' 
+                        : darkMode 
+                          ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
-                    title="Manage Infographics (Admin)"
+                    title={isMultiSelectMode ? "Exit Multi-Select Mode" : "Enter Multi-Select Mode"}
                   >
-                    <span className="text-lg">📁</span>
-                    <span className="text-sm font-medium">Manage Infographics</span>
+                    <img 
+                      src="/multiple_choice.svg" 
+                      alt="Multi-Selection" 
+                      className="w-5 h-5"
+                    />
+                    <span className="text-sm font-medium">Multi-Selection</span>
                   </button>
-                )}
-                
-                {/* Multi-select toggle */}
-                <button
-                  onClick={toggleMultiSelectMode}
-                  className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
-                    isMultiSelectMode 
-                      ? 'bg-blue-600 text-white' 
-                      : darkMode 
-                        ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                  title={isMultiSelectMode ? "Exit Multi-Select Mode" : "Enter Multi-Select Mode"}
-                >
-                  <img 
-                    src="/multiple_choice.svg" 
-                    alt="Multi-Selection" 
-                    className="w-5 h-5"
-                  />
-                  <span className="text-sm font-medium">Multi-Selection</span>
-                </button>
-                
-                {/* Selection count */}
-                {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && (
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    darkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {getSelectedCount()} selected
-                  </span>
-                )}
-              </div>
+                  
+                  {/* Selection count */}
+                  {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && (
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      darkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {getSelectedCount()} selected
+                    </span>
+                  )}
+                </>
+              )}
               <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>© 2025</div>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex gap-8">
+        {/* Icons Page Content */}
+        <div className={`flex gap-8 ${currentPage === "icons" ? "" : "hidden"}`}>
           {/* Left Panel - Icon List */}
           <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[400px] flex-shrink-0`}>
             <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
@@ -2182,14 +1437,7 @@ function App() {
                 Icons
               </button>
               <button
-                onClick={e => {
-                  if (e.ctrlKey && e.shiftKey) {
-                    triggerLlama();
-                    e.preventDefault();
-                    return;
-                  }
-                  handleTabChange("colorful-icons");
-                }}
+                onClick={() => handleTabChange("colorful-icons")}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "colorful-icons"
                     ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
@@ -2197,16 +1445,6 @@ function App() {
                 }`}
               >
                 Colorful Icons
-              </button>
-              <button
-                onClick={() => handleTabChange("single-color")}
-                className={`px-4 py-2 font-medium transition-colors ${
-                  activeTab === "single-color"
-                    ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
-                    : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
-                }`}
-              >
-                Single Color
               </button>
               <button
                 onClick={() => handleTabChange("flags")}
@@ -2227,7 +1465,6 @@ function App() {
                 placeholder={
                   activeTab === "icons" && !currentFolder ? "Search all icons..." :
                   activeTab === "colorful-icons" && !currentFolder ? "Search all colorful icons..." :
-                  activeTab === "single-color" ? "Search all single color icons..." :
                   `Search ${activeTab}...`
                 }
                 value={searchTerm}
@@ -2391,101 +1628,7 @@ function App() {
                   )}
                 </>
               )}
-              
-              {/* Global Search Results for Icons and Colorful Icons */}
-              {(activeTab === "icons" || activeTab === "colorful-icons") && !currentFolder && searchTerm && (
-                <>
-                  <button
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
-                    onClick={() => setSearchTerm("")}>
-                    ← Clear Search
-                  </button>
-                  {iconListView === "list" ? (
-                    filteredItems.map(item => (
-                      <button
-                        key={`${item.name}-${item.folder}`}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
-                          isMultiSelectMode 
-                            ? (activeTab === "icons" && selectedIcons && selectedIcons.has(item.name)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item.name))
-                              ? 'bg-blue-600 text-white font-semibold border-blue-600'
-                              : darkMode 
-                                ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                : 'hover:bg-blue-100 text-gray-700'
-                            : selectedIcon === item.name 
-                              ? 'bg-[#2E5583] text-white font-semibold' 
-                              : darkMode 
-                                ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                : 'hover:bg-blue-100 text-gray-700'
-                        }`}
-                        onClick={() => handleSearchResultClick(item)}>
-                        <span>{item.name} <span className="text-xs opacity-70">({item.folder})</span></span>
-                        {isMultiSelectMode && (
-                          <span className="ml-2">
-                            {(activeTab === "icons" && selectedIcons && selectedIcons.has(item.name)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item.name))
-                              ? '☑️'
-                              : '☐'
-                            }
-                          </span>
-                        )}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="grid grid-cols-3 gap-3">
-                      {filteredItems.map(item => {
-                        let iconUrl;
-                        if (activeTab === "colorful-icons") {
-                          iconUrl = item.folder === "Root" 
-                            ? `${backendUrl}/colorful-icons/${item.name}.svg?t=${Date.now()}`
-                            : `${backendUrl}/colorful-icons/${item.folder}/${item.name}.svg?t=${Date.now()}`;
-                        } else {
-                          iconUrl = item.folder === "Root" 
-                            ? `${backendUrl}/static/${item.name}.svg?t=${Date.now()}`
-                            : `${backendUrl}/static-icons/${item.folder}/${item.name}.svg?t=${Date.now()}`;
-                        }
-                        return (
-                          <button
-                            key={`${item.name}-${item.folder}`}
-                            className={`flex flex-col items-center p-2 rounded-lg border transition w-full h-28 justify-center ${
-                              isMultiSelectMode 
-                                ? (activeTab === "icons" && selectedIcons && selectedIcons.has(item.name)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item.name))
-                                  ? 'bg-blue-600 text-white font-semibold border-blue-600'
-                                  : darkMode 
-                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                    : 'hover:bg-blue-100 text-gray-700'
-                                : selectedIcon === item.name 
-                                  ? 'bg-[#2E5583] text-white font-semibold' 
-                                  : darkMode 
-                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                    : 'hover:bg-blue-100 text-gray-700'
-                            }`}
-                            onClick={() => handleSearchResultClick(item)}
-                          >
-                            <img
-                              src={iconUrl}
-                              alt={item.name}
-                              className="w-12 h-12 object-contain mb-1"
-                              onError={e => e.target.style.display = 'none'}
-                            />
-                            <span className="text-xs truncate w-full text-center">{item.name}</span>
-                            <span className="text-xs opacity-70">({item.folder})</span>
-                            {isMultiSelectMode && (
-                              <span className="ml-2">
-                                {(activeTab === "icons" && selectedIcons && selectedIcons.has(item.name)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item.name))
-                                  ? '☑️'
-                                  : '☐'
-                                }
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-              
-              {/* Flags */}
-              {activeTab === "flags" && filteredItems.map(item => (
+              {activeTab === "flags" && getCountryNames().map(item => (
                 <button
                   key={item}
                   className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
@@ -2575,12 +1718,6 @@ function App() {
                       >
                         Export PNG
                       </button>
-                      <button
-                        onClick={handleCopyAsImage}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
-                      >
-                        Copy to Clipboard
-                      </button>
                     </div>
                   )}
                   
@@ -2590,7 +1727,7 @@ function App() {
                       <h4 className={`text-md font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         Apply to {selectedFlags.size} selected flags:
                       </h4>
-                      <div className="flex gap-2 flex-wrap">
+                      <div className="flex gap-2">
                         <button
                           onClick={exportMultipleSvg}
                           disabled={loading}
@@ -2616,32 +1753,6 @@ function App() {
                           }`}
                         >
                           {loading ? 'Exporting...' : 'Export PNGs'}
-                        </button>
-                        <button
-                          onClick={() => exportAsZip("svg")}
-                          disabled={loading}
-                          className={`px-4 py-2 rounded-lg transition ${
-                            loading 
-                              ? 'bg-gray-400 cursor-not-allowed' 
-                              : darkMode 
-                                ? 'bg-green-600 text-white hover:bg-green-700' 
-                                : 'bg-green-500 text-white hover:bg-green-600'
-                          }`}
-                        >
-                          {loading ? 'Exporting...' : 'Export as ZIP (SVG)'}
-                        </button>
-                        <button
-                          onClick={() => exportAsZip("png")}
-                          disabled={loading}
-                          className={`px-4 py-2 rounded-lg transition ${
-                            loading 
-                              ? 'bg-gray-400 cursor-not-allowed' 
-                              : darkMode 
-                                ? 'bg-purple-600 text-white hover:bg-purple-700' 
-                                : 'bg-purple-500 text-white hover:bg-purple-600'
-                          }`}
-                        >
-                          {loading ? 'Exporting...' : 'Export as ZIP (PNG)'}
                         </button>
                       </div>
                     </div>
@@ -2821,13 +1932,13 @@ function App() {
                   <input
                     type="color"
                     value={currentColor}
-                    onChange={handleColorInputChange}
+                    onChange={(e) => !isMultiSelectMode ? selectCompanyColor(e.target.value) : setCurrentColor(e.target.value)}
                     className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
                     type="text"
                     value={currentColor}
-                    onChange={handleColorInputChange}
+                    onChange={(e) => !isMultiSelectMode ? selectCompanyColor(e.target.value) : setCurrentColor(e.target.value)}
                     className={`flex-1 px-3 py-2 border border-gray-300 rounded ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-900'}`}
                     placeholder="#000000"
                   />
@@ -2858,7 +1969,7 @@ function App() {
                 <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Export Options
                 </h4>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2">
                   <button
                     onClick={isMultiSelectMode ? exportMultipleSvg : exportSvg}
                     className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
@@ -2871,22 +1982,6 @@ function App() {
                   >
                     {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} PNGs` : "Export PNG"}
                   </button>
-                  {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && (
-                    <>
-                      <button
-                        onClick={() => exportAsZip("svg")}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
-                      >
-                        Export as ZIP (SVG)
-                      </button>
-                      <button
-                        onClick={() => exportAsZip("png")}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
-                      >
-                        Export as ZIP (PNG)
-                      </button>
-                    </>
-                  )}
                   {!isMultiSelectMode && (
                     <button
                       onClick={handleCopyAsImage}
@@ -2899,7 +1994,42 @@ function App() {
               </div>
             )}
 
-
+            {/* Export Options for Flags */}
+            {((selectedCountry && !isMultiSelectMode) || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && activeTab === "flags")) && activeTab === "flags" && (
+              <div className="mt-6">
+                {!isMultiSelectMode && (
+                  <>
+                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      Export Options
+                    </h4>
+                  </>
+                )}
+                <div className="flex gap-2">
+                  {!isMultiSelectMode && (
+                    <>
+                      <button
+                        onClick={exportSvg}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                      >
+                        Export SVG
+                      </button>
+                      <button
+                        onClick={exportPng}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                      >
+                        Export PNG
+                      </button>
+                      <button
+                        onClick={handleCopyAsImage}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
+                      >
+                        Copy to Clipboard
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Panel - Preview */}
@@ -3019,6 +2149,151 @@ function App() {
           </div>
         </div>
       </div>
+
+        {/* Infographics Page Content */}
+        <div className={`flex gap-8 ${currentPage === "infographics" ? "" : "hidden"}`}>
+          {/* Left Panel - Infographics List */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[400px] flex-shrink-0`}>
+            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
+              Infographics
+            </h3>
+            
+            {/* Category Filter */}
+            <div className="mb-4">
+              <select
+                value={infographicCategory}
+                onChange={e => setInfographicCategory(e.target.value)}
+                className={`w-full px-3 py-2 rounded-lg border transition-colors ${
+                  darkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                <option value="All">All Categories</option>
+                {Array.from(new Set(infographics.map(i => i.category).filter(Boolean))).map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Search Input */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search infographics..."
+                value={infographicSearch}
+                onChange={(e) => setInfographicSearch(e.target.value)}
+                className={`w-full px-3 py-2 rounded-lg border transition-colors ${
+                  darkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none'
+                }`}
+              />
+            </div>
+            
+            {/* Infographics List */}
+            <div className="flex flex-col gap-3 max-h-[600px] overflow-y-auto">
+              {infographics
+                .filter(i => (infographicCategory === 'All' || i.category === infographicCategory) &&
+                             (typeof i.title === 'string' && i.title.toLowerCase().includes(infographicSearch.toLowerCase())))
+                .map(i => (
+                  <button
+                    key={i.filename}
+                    className={`flex items-center gap-3 p-2 rounded-lg transition border border-gray-500 text-left ${
+                      selectedInfographic && selectedInfographic.filename === i.filename 
+                        ? (darkMode ? 'bg-[#2E5583] text-white font-semibold border-[#2E5583]' : 'bg-blue-100 text-blue-800 font-semibold border-blue-600') 
+                        : (darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700')
+                    }`}
+                    onClick={() => setSelectedInfographic(i)}
+                  >
+                    <img
+                      src={`/infographics/${i.filename}`}
+                      alt={i.title}
+                      className="w-16 h-16 object-contain rounded bg-gray-100"
+                      onError={e => {
+                        if (!e.target.src.includes('via.placeholder.com')) {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/64x64?text=No+Image';
+                        }
+                      }}
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-medium">{i.title}</span>
+                      <span className="text-xs text-gray-400">Slide: {i.slide_number}</span>
+                      <span className="text-xs text-gray-400">Category: {i.category}</span>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </div>
+
+          {/* Right Panel - Infographics Preview */}
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl flex-1`}>
+            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
+              Preview
+            </h3>
+            
+            {selectedInfographic ? (
+              <div className="space-y-4">
+                {/* Infographic Image */}
+                <div className="flex justify-center">
+                  <img
+                    src={`/infographics/${selectedInfographic.filename}`}
+                    alt={selectedInfographic.title}
+                    className="max-w-full max-h-96 object-contain rounded-lg shadow-lg"
+                    onError={e => {
+                      if (!e.target.src.includes('via.placeholder.com')) {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+                      }
+                    }}
+                  />
+                </div>
+                
+                {/* Infographic Details */}
+                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    {selectedInfographic.title}
+                  </h4>
+                  <div className="space-y-1 text-sm">
+                    <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
+                      <span className="font-medium">Slide:</span> {selectedInfographic.slide_number}
+                    </p>
+                    <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
+                      <span className="font-medium">Category:</span> {selectedInfographic.category}
+                    </p>
+                    <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
+                      <span className="font-medium">Filename:</span> {selectedInfographic.filename}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Download Button */}
+                <div className="flex justify-center">
+                  <a
+                    href={`/infographics/${selectedInfographic.filename}`}
+                    download={selectedInfographic.filename}
+                    className={`px-6 py-3 rounded-lg transition flex items-center gap-2 ${
+                      darkMode 
+                        ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    <span className="text-lg">⬇️</span>
+                    <span className="font-medium">Download Infographic</span>
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className={`flex items-center justify-center h-64 rounded-lg ${darkMode ? 'bg-transparent text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                <div className="text-center">
+                  <div className="text-lg mb-2">No Infographic Selected</div>
+                  <div className="text-sm">Select an infographic from the list to preview</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
       {/* Feedback Modal */}
       {showFeedbackModal && (
@@ -3247,346 +2522,6 @@ function App() {
             </div>
           </div>
         </div>
-      )}
-      {showLlama && (
-        <div
-          onClick={() => setShowLlama(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            cursor: 'pointer',
-          }}
-          title="Click to dismiss"
-        >
-          <img src="/llama.gif" alt="Llama!" style={{ maxWidth: '80vw', maxHeight: '80vh', borderRadius: '16px', boxShadow: '0 4px 32px #0008' }} />
-        </div>
-      )}
-      
-
-      
-              {/* Infographics Admin Modal */}
-        {showInfographicsAdmin && (
-          <>
-            {console.log('Rendering infographics admin modal - MAIN MODAL')}
-            {console.log('Modal adminCategories:', adminCategories)}
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-            style={{ zIndex: 9999 }}
-          >
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-6xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col`}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Manage Infographics ({infographics.length})
-                </h3>
-                <button
-                  onClick={() => setShowInfographicsAdmin(false)}
-                  className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-                >
-                  <span className="text-xl">✕</span>
-                </button>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto">
-                {/* Upload Section */}
-                <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    Upload New Infographic
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <input
-                      type="file"
-                      accept=".png,.jpg,.jpeg"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          console.log('File selected:', file.name);
-                          setUploadForm(prev => ({ ...prev, filename: file.name }));
-                        }
-                      }}
-                      className={`px-3 py-2 rounded-lg border transition-colors ${
-                        darkMode 
-                          ? 'bg-gray-600 border-gray-500 text-white' 
-                          : 'bg-white border-gray-300 text-gray-900'
-                      }`}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Title"
-                      value={uploadForm.title}
-                      onChange={(e) => {
-                        setUploadForm(prev => ({ ...prev, title: e.target.value }));
-                      }}
-                      className={`px-3 py-2 rounded-lg border transition-colors ${
-                        darkMode 
-                          ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
-                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                      }`}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Slide Number"
-                      value={uploadForm.slideNumber}
-                      onChange={(e) => {
-                        setUploadForm(prev => ({ ...prev, slideNumber: e.target.value }));
-                      }}
-                      className={`px-3 py-2 rounded-lg border transition-colors ${
-                        darkMode 
-                          ? 'bg-gray-600 border-gray-500 text-white placeholder-gray-400' 
-                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                      }`}
-                    />
-                    <select
-                      value={uploadForm.category}
-                      onChange={e => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
-                      className={`px-3 py-2 rounded-lg border transition-colors ${
-                        darkMode 
-                          ? 'bg-gray-600 border-gray-500 text-white' 
-                          : 'bg-white border-gray-300 text-gray-900'
-                      }`}
-                    >
-                      <option value="">Select Category</option>
-                      {console.log('Rendering upload select with categories:', adminCategories)}
-                      {adminCategories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    onClick={() => {
-                      console.log('Upload button clicked, form data:', uploadForm);
-                      
-                      // Validate inputs
-                      if (!uploadForm.filename) {
-                        toast.error('Please select a file');
-                        return;
-                      }
-                      if (!uploadForm.title || !uploadForm.title.trim()) {
-                        toast.error('Please enter a title');
-                        return;
-                      }
-                      if (!uploadForm.slideNumber || parseInt(uploadForm.slideNumber) < 1) {
-                        toast.error('Please enter a valid slide number');
-                        return;
-                      }
-                      if (!uploadForm.category) {
-                        toast.error('Please select a category');
-                        return;
-                      }
-                      
-                      // Check if filename already exists
-                      if (infographics.some(inf => inf.filename === uploadForm.filename)) {
-                        toast.error('A file with this name already exists');
-                        return;
-                      }
-                      
-                      // Add the new infographic
-                      const newInfographic = {
-                        filename: uploadForm.filename,
-                        title: uploadForm.title,
-                        slide_number: parseInt(uploadForm.slideNumber),
-                        category: uploadForm.category
-                      };
-                      
-                      console.log('Adding new infographic:', newInfographic);
-                      setInfographics(prev => [...prev, newInfographic]);
-                      
-                      // Clear the form
-                      setUploadForm({
-                        filename: '',
-                        title: '',
-                        slideNumber: '',
-                        category: ''
-                      });
-                      
-                      toast.success(`Infographic "${uploadForm.title}" added successfully!`);
-                    }}
-                    className={`mt-3 px-4 py-2 rounded-lg transition ${
-                      darkMode 
-                        ? 'bg-green-600 text-white hover:bg-green-700' 
-                        : 'bg-green-500 text-white hover:bg-green-600'
-                    }`}
-                  >
-                    Upload Infographic
-                  </button>
-                </div>
-
-                {/* Current Infographics List */}
-                <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    Current Infographics ({infographics.length})
-                  </h4>
-                  <div className="overflow-x-auto">
-                    <table className={`w-full ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                      <thead>
-                        <tr className={`border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                          <th className="text-left p-2">Thumbnail</th>
-                          <th className="text-left p-2">Filename</th>
-                          <th className="text-left p-2">Title</th>
-                          <th className="text-left p-2">Slide</th>
-                          <th className="text-left p-2">Category</th>
-                          <th className="text-left p-2">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {infographics.map((infographic, index) => (
-                          <tr key={infographic.filename} className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                            <td className="p-2">
-                              <img
-                                src={`/infographics/${infographic.filename}`}
-                                alt={infographic.title}
-                                className="w-12 h-12 object-contain rounded bg-gray-100"
-                                onError={e => {
-                                  if (!e.target.src.includes('via.placeholder.com')) {
-                                    e.target.onerror = null;
-                                    e.target.src = 'https://via.placeholder.com/48x48?text=No+Image';
-                                  }
-                                }}
-                              />
-                            </td>
-                            <td className="p-2 font-mono text-sm">{infographic.filename}</td>
-                            <td className="p-2">
-                              <input
-                                type="text"
-                                value={infographic.title}
-                                onChange={(e) => {
-                                  const newInfographics = [...infographics];
-                                  newInfographics[index].title = e.target.value;
-                                  setInfographics(newInfographics);
-                                }}
-                                className={`px-2 py-1 rounded border text-sm ${
-                                  darkMode 
-                                    ? 'bg-gray-600 border-gray-500 text-white' 
-                                    : 'bg-white border-gray-300 text-gray-900'
-                                }`}
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                value={infographic.slide_number}
-                                onChange={(e) => {
-                                  const newInfographics = [...infographics];
-                                  newInfographics[index].slide_number = parseInt(e.target.value);
-                                  setInfographics(newInfographics);
-                                }}
-                                className={`px-2 py-1 rounded border text-sm w-16 ${
-                                  darkMode 
-                                    ? 'bg-gray-600 border-gray-500 text-white' 
-                                    : 'bg-white border-gray-300 text-gray-900'
-                                }`}
-                              />
-                            </td>
-                            <td className="p-2">
-                              <select
-                                value={infographic.category}
-                                onChange={(e) => {
-                                  const newInfographics = [...infographics];
-                                  newInfographics[index].category = e.target.value;
-                                  setInfographics(newInfographics);
-                                }}
-                                className={`px-2 py-1 rounded border text-sm ${
-                                  darkMode 
-                                    ? 'bg-gray-600 border-gray-500 text-white' 
-                                    : 'bg-white border-gray-300 text-gray-900'
-                                }`}
-                              >
-                                {adminCategories.map(cat => (
-                                  <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="p-2">
-                              <button
-                                onClick={() => {
-                                  const newInfographics = infographics.filter((_, i) => i !== index);
-                                  setInfographics(newInfographics);
-                                }}
-                                className={`px-2 py-1 rounded text-xs ${
-                                  darkMode 
-                                    ? 'bg-red-600 text-white hover:bg-red-700' 
-                                    : 'bg-red-500 text-white hover:bg-red-600'
-                                }`}
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Download Section */}
-                <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    Export/Import
-                  </h4>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        const dataStr = JSON.stringify(infographics, null, 2);
-                        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                        const url = URL.createObjectURL(dataBlob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = 'mapping.json';
-                        link.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      className={`px-4 py-2 rounded-lg transition ${
-                        darkMode 
-                          ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                          : 'bg-blue-500 text-white hover:bg-blue-600'
-                      }`}
-                    >
-                      Download mapping.json
-                    </button>
-                    <button
-                      onClick={() => {
-                        const input = document.createElement('input');
-                        input.type = 'file';
-                        input.accept = '.json';
-                        input.onchange = (e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                              try {
-                                const data = JSON.parse(e.target.result);
-                                setInfographics(data);
-                                toast.success('Infographics data imported successfully');
-                              } catch (error) {
-                                toast.error('Invalid JSON file');
-                              }
-                            };
-                            reader.readAsText(file);
-                          }
-                        };
-                        input.click();
-                      }}
-                      className={`px-4 py-2 rounded-lg transition ${
-                        darkMode 
-                          ? 'bg-green-600 text-white hover:bg-green-700' 
-                          : 'bg-green-500 text-white hover:bg-green-600'
-                      }`}
-                    >
-                      Import mapping.json
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
       )}
     </div>
   );
