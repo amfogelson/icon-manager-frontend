@@ -65,25 +65,6 @@ function TopNavigation({ currentPage, setCurrentPage, darkMode, setDarkMode, set
 function App() {
   console.log('VITE_BACKEND_URL:', import.meta.env.VITE_BACKEND_URL);
   
-  // Fallback clipboard function for older browsers
-  const fallbackCopyTextToClipboard = (text) => {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    textArea.style.position = "fixed";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand('copy');
-      console.log('SVG copied using fallback method');
-    } catch (err) {
-      console.error('Fallback copy failed:', err);
-    }
-    document.body.removeChild(textArea);
-  };
-  
   // Page navigation state
   const [currentPage, setCurrentPage] = useState("icons"); // "icons" or "infographics"
   
@@ -136,14 +117,8 @@ function App() {
   const [selectedInfographic, setSelectedInfographic] = useState(null);
   const [infographicSearch, setInfographicSearch] = useState("");
   const [infographicCategory, setInfographicCategory] = useState('All');
-  const [infographicTheme, setInfographicTheme] = useState('light'); // 'light' or 'bcore'
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-
-  // Debug theme changes
-  useEffect(() => {
-    console.log('Theme changed to:', infographicTheme);
-  }, [infographicTheme]);
 
   // Trigger redeploy
   useEffect(() => {
@@ -1471,32 +1446,13 @@ function App() {
       console.log('Copying SVG with request data:', requestData);
       
       const response = await axios.post(`${backendUrl}/export-svg`, requestData);
-      console.log('Response received:', response.data);
       
       if (response.data.svg_content) {
-        console.log('SVG content length:', response.data.svg_content.length);
-        
-        // Try modern clipboard API first
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          try {
-            await navigator.clipboard.writeText(response.data.svg_content);
-            console.log('SVG copied to clipboard successfully');
-            toast.success("SVG copied to clipboard!");
-          } catch (clipboardError) {
-            console.error('Clipboard API failed:', clipboardError);
-            // Fallback to old method
-            fallbackCopyTextToClipboard(response.data.svg_content);
-            toast.success("SVG copied to clipboard!");
-          }
-        } else {
-          // Fallback for older browsers
-          fallbackCopyTextToClipboard(response.data.svg_content);
-          toast.success("SVG copied to clipboard!");
-        }
+        await navigator.clipboard.writeText(response.data.svg_content);
       } else {
-        console.error('No SVG content in response:', response.data);
         throw new Error('No SVG content received');
       }
+      toast.success("SVG copied to clipboard!");
     } catch (error) {
       console.error('Error copying SVG:', error);
       toast.error("Failed to copy SVG");
@@ -1505,44 +1461,13 @@ function App() {
 
   const handleCopyAsImage = async () => {
     try {
-      // Determine the icon name and type
-      let iconName, type, folder;
-      if (activeTab === "flags" && selectedCountry) {
-        iconName = getFlagFilename(selectedCountry, flagType);
-        type = "flag";
-      } else if (activeTab === "single-color") {
-        iconName = selectedIcon + ".svg"; // For single color icons
-        type = "icon";
-        folder = "SingleColor";
-      } else if (activeTab === "colorful-icons") {
-        iconName = selectedIcon + ".svg"; // For colorful icons
-        type = "colorful-icon";
-        folder = currentFolder || "Root";
-      } else {
-        iconName = selectedIcon + ".svg"; // Append .svg extension for icons
-        type = "icon";
-        folder = currentFolder || "Root";
+      let url = svgUrl;
+      if (!url) {
+        toast.error("No SVG to copy as image");
+        return;
       }
-
-      // Call the backend to get SVG content
-      const requestData = {
-        icon_name: iconName,
-        type: type
-      };
-      
-      if (type === "icon" || type === "colorful-icon") {
-        requestData.folder = folder;
-      }
-      
-      console.log('Copying as image with request data:', requestData);
-      
-      const response = await axios.post(`${backendUrl}/export-svg`, requestData);
-      
-      if (!response.data.svg_content) {
-        throw new Error('No SVG content received');
-      }
-      
-      const svgText = response.data.svg_content;
+      const response = await fetch(url);
+      const svgText = await response.text();
       // Create an image from SVG
       const img = new window.Image();
       const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
@@ -2595,38 +2520,6 @@ function App() {
               Infographics
             </h3>
             
-            {/* Theme Selection */}
-            <div className="mb-4">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    console.log('Light button clicked, setting theme to light');
-                    setInfographicTheme('light');
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-lg transition-colors font-medium ${
-                    infographicTheme === 'light'
-                      ? (darkMode ? 'bg-[#2E5583] text-white' : 'bg-blue-500 text-white')
-                      : (darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
-                  }`}
-                >
-                  Light
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('Bcore button clicked, setting theme to bcore');
-                    setInfographicTheme('bcore');
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-lg transition-colors font-medium ${
-                    infographicTheme === 'bcore'
-                      ? (darkMode ? 'bg-[#2E5583] text-white' : 'bg-blue-500 text-white')
-                      : (darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
-                  }`}
-                >
-                  Bcore
-                </button>
-              </div>
-            </div>
-            
             {/* Category Filter */}
             <div className="mb-4">
               <select
@@ -2676,7 +2569,7 @@ function App() {
                     onClick={() => setSelectedInfographic(i)}
                   >
                     <img
-                      src={`${backendUrl}/infographics/${i.filename.replace('.png', `_${infographicTheme}.PNG`)}`}
+                      src={`/infographics/${i.filename}`}
                       alt={i.title}
                       className="w-16 h-16 object-contain rounded bg-gray-100"
                       onError={e => {
@@ -2707,7 +2600,7 @@ function App() {
                 {/* Infographic Image */}
                 <div className="flex justify-center">
                   <img
-                    src={`${backendUrl}/infographics/${selectedInfographic.filename.replace('.png', `_${infographicTheme}.PNG`)}`}
+                    src={`/infographics/${selectedInfographic.filename}`}
                     alt={selectedInfographic.title}
                     className="max-w-full max-h-96 object-contain rounded-lg shadow-lg"
                     onError={e => {
@@ -2742,12 +2635,8 @@ function App() {
                 {/* Download Button */}
                 <div className="flex flex-col items-center gap-2">
                   <a
-                    href={`${backendUrl}/infographics/${selectedInfographic.filename.replace('.png', '')}/download?theme=${infographicTheme}`}
-                    download={`infographics_master_${infographicTheme}.pptx`}
-                    onClick={() => {
-                      console.log('Download clicked with theme:', infographicTheme);
-                      console.log('Download URL:', `${backendUrl}/infographics/${selectedInfographic.filename.replace('.png', '')}/download?theme=${infographicTheme}`);
-                    }}
+                    href={`${backendUrl}/infographics/${selectedInfographic.filename.replace('.png', '')}/download`}
+                    download="infographics_master.pptx"
                     className={`px-6 py-3 rounded-lg transition flex items-center gap-2 ${
                       darkMode 
                         ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
@@ -2755,10 +2644,10 @@ function App() {
                     }`}
                   >
                     <span className="text-lg">📊</span>
-                    <span className="font-medium">Download {infographicTheme === 'light' ? 'Light' : 'Bcore'} PowerPoint</span>
+                    <span className="font-medium">Download Master PowerPoint</span>
                   </a>
                   <p className={`text-xs text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Download the {infographicTheme} PowerPoint file and navigate to slide {selectedInfographic.slide_number}
+                    Download the complete PowerPoint file and navigate to slide {selectedInfographic.slide_number}
                   </p>
                 </div>
               </div>
@@ -3040,6 +2929,113 @@ function App() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Response Modal */}
+      {showResponseModal && selectedFeedbackForResponse && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-md w-full mx-4`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                Respond to Feedback
+              </h3>
+              <button
+                onClick={() => {
+                  setShowResponseModal(false);
+                  setSelectedFeedbackForResponse(null);
+                  setResponseMessage("");
+                }}
+                className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+              >
+                <span className="text-xl">✕</span>
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                <strong>From:</strong> {selectedFeedbackForResponse.email}
+              </p>
+              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                <strong>Type:</strong> {selectedFeedbackForResponse.type}
+              </p>
+              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                <strong>Message:</strong> {selectedFeedbackForResponse.message}
+              </p>
+            </div>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const response = await axios.post(`${backendUrl}/feedback/respond`, {
+                  feedback_id: selectedFeedbackForResponse.id,
+                  response_message: responseMessage
+                });
+                
+                if (response.data.status === "Response sent successfully") {
+                  toast.success("Response sent successfully!");
+                  setShowResponseModal(false);
+                  setSelectedFeedbackForResponse(null);
+                  setResponseMessage("");
+                  
+                  // Refresh feedback list to update status
+                  const feedbackResponse = await axios.get(`${backendUrl}/feedback`);
+                  setAllFeedback(feedbackResponse.data.feedback || []);
+                } else {
+                  toast.error("Failed to send response");
+                }
+              } catch (error) {
+                console.error('Error sending response:', error);
+                toast.error("Failed to send response");
+              }
+            }}>
+              <div className="mb-4">
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
+                  Your Response
+                </label>
+                <textarea
+                  value={responseMessage}
+                  onChange={(e) => setResponseMessage(e.target.value)}
+                  placeholder="Type your response to the user..."
+                  rows={4}
+                  className={`w-full px-3 py-2 border rounded-lg resize-none ${
+                    darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none'
+                  }`}
+                  required
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResponseModal(false);
+                    setSelectedFeedbackForResponse(null);
+                    setResponseMessage("");
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg transition ${
+                    darkMode 
+                      ? 'bg-gray-600 text-white hover:bg-gray-700' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 px-4 py-2 rounded-lg transition ${
+                    darkMode 
+                      ? 'bg-green-600 text-white hover:bg-green-700' 
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                >
+                  Send Response
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -13,7 +13,9 @@ try:
         old_mapping = json.load(f)
         # Convert to dict for easier lookup
         old_mapping_dict = {item['filename']: item['slide_number'] for item in old_mapping}
-except Exception:
+        print(f"Loaded {len(old_mapping_dict)} existing mappings")
+except Exception as e:
+    print(f"Error loading old mapping: {e}")
     old_mapping_dict = {}
 
 def get_slide_number(png_name, old_mapping_dict):
@@ -31,7 +33,7 @@ def get_slide_number(png_name, old_mapping_dict):
             return slide_num
     
     # Not found, assign next available number
-    max_slide = max(old_mapping_dict.values()) if old_mapping_dict else 0 
+    max_slide = max(old_mapping_dict.values()) if old_mapping_dict else 0
     return max_slide + 1
 
 def get_category_from_filename(filename):
@@ -59,6 +61,7 @@ def main():
     mapping = []
     # Find all PNG files in the current directory
     png_files = glob(os.path.join(INFOGraphics_ROOT, '*.PNG'))
+    print(f"Found {len(png_files)} PNG files")
     
     for png_path in png_files:
         filename = os.path.basename(png_path)
