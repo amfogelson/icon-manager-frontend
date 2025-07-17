@@ -117,7 +117,7 @@ function App() {
   const [selectedColorfulIconsWithFolders, setSelectedColorfulIconsWithFolders] = useState(new Map());
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Toggle multi-select mode
   const [isGreyscale, setIsGreyscale] = useState(false); // Track if current icon is greyscale
-  const [iconListView, setIconListView] = useState("list"); // 'list' or 'grid'
+  const [iconListView, setIconListView] = useState("grid"); // 'list' or 'grid'
   
   // Feedback state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -2286,7 +2286,17 @@ function App() {
                   <input
                     type="color"
                     value={currentColor}
-                    onChange={(e) => !isMultiSelectMode ? selectCompanyColor(e.target.value) : setCurrentColor(e.target.value)}
+                    onChange={(e) => {
+                      // Update local state immediately for visual feedback
+                      setCurrentColor(e.target.value);
+                      setLocalPreviewColor(e.target.value);
+                    }}
+                    onBlur={(e) => {
+                      // Only apply color change when user finishes dragging/releases
+                      if (!isMultiSelectMode) {
+                        selectCompanyColor(e.target.value);
+                      }
+                    }}
                     className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input
@@ -2342,7 +2352,15 @@ function App() {
                   <input
                     type="color"
                     value={currentColor}
-                    onChange={(e) => selectCompanyColor(e.target.value)}
+                    onChange={(e) => {
+                      // Update local state immediately for visual feedback
+                      setCurrentColor(e.target.value);
+                      setLocalPreviewColor(e.target.value);
+                    }}
+                    onBlur={(e) => {
+                      // Only apply color change when user finishes dragging/releases
+                      selectCompanyColor(e.target.value);
+                    }}
                     className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                   />
                   <input

@@ -63,15 +63,24 @@ def main():
     png_files = glob(os.path.join(INFOGraphics_ROOT, '*.PNG'))
     print(f"Found {len(png_files)} PNG files")
     
+    # Track processed base filenames to avoid duplicates
+    processed_bases = set()
+    
     for png_path in png_files:
         filename = os.path.basename(png_path)
         
-        # Skip non-bcore files for now (we'll handle them separately if needed)
+        # Only process _bcore.PNG files to avoid duplicates
         if not filename.endswith('_bcore.PNG'):
             continue
             
         # Create base filename (without _bcore suffix)
         base_filename = filename.replace('_bcore.PNG', '.png')
+        
+        # Skip if we've already processed this base filename
+        if base_filename in processed_bases:
+            continue
+            
+        processed_bases.add(base_filename)
         
         # Generate title from filename
         title = base_filename.replace('.png', '').replace('_', ' ').replace('-', ' ')
@@ -83,7 +92,7 @@ def main():
         category = get_category_from_filename(filename)
         
         mapping.append({
-            'filename': filename,  # Store without _bcore suffix
+            'filename': base_filename,  # Store base filename without theme suffix
             'title': title,
             'slide_number': slide_number,
             'category': category
