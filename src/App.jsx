@@ -112,9 +112,11 @@ function App() {
   const [singleColorIcons, setSingleColorIcons] = useState([]); // For single color icons
   const [selectedIcons, setSelectedIcons] = useState(new Set());
   const [selectedColorfulIcons, setSelectedColorfulIcons] = useState(new Set());
+  const [selectedSingleColorIcons, setSelectedSingleColorIcons] = useState(new Set());
   const [selectedFlags, setSelectedFlags] = useState(new Set());
   const [selectedIconsWithFolders, setSelectedIconsWithFolders] = useState(new Map());
   const [selectedColorfulIconsWithFolders, setSelectedColorfulIconsWithFolders] = useState(new Map());
+  const [selectedSingleColorIconsWithFolders, setSelectedSingleColorIconsWithFolders] = useState(new Map());
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Toggle multi-select mode
   const [isGreyscale, setIsGreyscale] = useState(false); // Track if current icon is greyscale
   const [iconListView, setIconListView] = useState("grid"); // 'list' or 'grid'
@@ -584,6 +586,8 @@ function App() {
         selectedItems = Array.from(selectedIcons || []);
       } else if (activeTab === "colorful-icons") {
         selectedItems = Array.from(selectedColorfulIcons || []);
+      } else if (activeTab === "single-color") {
+        selectedItems = Array.from(selectedSingleColorIcons || []);
       } else if (activeTab === "flags") {
         selectedItems = Array.from(selectedFlags || []);
       }
@@ -605,6 +609,8 @@ function App() {
             svgUrl = folderPath === "Root" 
               ? `${backendUrl}/colorful-icons/${itemName}.svg`
               : `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg`;
+          } else if (activeTab === "single-color") {
+            svgUrl = `${backendUrl}/single-color-files/${itemName}.svg`;
           } else {
             svgUrl = folderPath === "Root" 
               ? `${backendUrl}/static/${itemName}.svg`
@@ -653,6 +659,8 @@ function App() {
         selectedItems = Array.from(selectedIcons || []);
       } else if (activeTab === "colorful-icons") {
         selectedItems = Array.from(selectedColorfulIcons || []);
+      } else if (activeTab === "single-color") {
+        selectedItems = Array.from(selectedSingleColorIcons || []);
       } else if (activeTab === "flags") {
         selectedItems = Array.from(selectedFlags || []);
       }
@@ -671,6 +679,9 @@ function App() {
           if (activeTab === "flags") {
             iconName = getFlagFilename(itemName, flagType);
             type = "flag";
+          } else if (activeTab === "single-color") {
+            iconName = itemName + ".svg";
+            type = "single-color";
           } else {
             iconName = itemName + ".svg";
             type = "icon";
@@ -725,6 +736,8 @@ function App() {
         selectedItems = Array.from(selectedIcons || []);
       } else if (activeTab === "colorful-icons") {
         selectedItems = Array.from(selectedColorfulIcons || []);
+      } else if (activeTab === "single-color") {
+        selectedItems = Array.from(selectedSingleColorIcons || []);
       } else if (activeTab === "flags") {
         selectedItems = Array.from(selectedFlags || []);
       }
@@ -742,6 +755,8 @@ function App() {
         type = "flag";
       } else if (activeTab === "colorful-icons") {
         type = "colorful-icon";
+      } else if (activeTab === "single-color") {
+        type = "single-color";
       } else {
         type = "icon";
       }
@@ -898,7 +913,14 @@ function App() {
   const selectCompanyColor = (color) => {
     setCurrentColor(color);
     setLocalPreviewColor(color);
-    applyColorChange(color);
+    
+    // In multi-select mode for single color icons, apply to all selected icons
+    if (isMultiSelectMode && activeTab === "single-color" && selectedSingleColorIcons && selectedSingleColorIcons.size > 0) {
+      applyColorToMultipleSingleColorIcons(color);
+    } else {
+      // Apply to single selected icon
+      applyColorChange(color);
+    }
   };
 
   // Company colors - customize these with your actual brand colors
@@ -968,6 +990,7 @@ function App() {
     // Clear multi-select selections when switching tabs
     setSelectedIcons(new Set());
     setSelectedColorfulIcons(new Set());
+    setSelectedSingleColorIcons(new Set());
     setSelectedFlags(new Set());
     
     // Load appropriate icons based on tab
@@ -1156,9 +1179,17 @@ function App() {
     if (isMultiSelectMode) {
       setSelectedIcons(new Set());
       setSelectedColorfulIcons(new Set());
+      setSelectedSingleColorIcons(new Set());
       setSelectedFlags(new Set());
       setSelectedIconsWithFolders(new Map());
       setSelectedColorfulIconsWithFolders(new Map());
+      setSelectedSingleColorIconsWithFolders(new Map());
+      
+      // Clear preview when exiting multi-select mode
+      if (activeTab === "single-color") {
+        setSelectedIcon(null);
+        setSvgUrl("");
+      }
     }
   };
 
@@ -1208,6 +1239,56 @@ function App() {
           }
           return newMap;
         });
+      } else if (activeTab === "single-color") {
+        setSelectedSingleColorIcons(prev => {
+          const newSet = new Set(prev || []);
+          if (newSet.has(iconName)) {
+            newSet.delete(iconName);
+          } else {
+            newSet.add(iconName);
+          }
+          return newSet;
+        });
+        
+        setSelectedSingleColorIconsWithFolders(prev => {
+          const newMap = new Map(prev || []);
+          if (newMap.has(iconName)) {
+            newMap.delete(iconName);
+          } else {
+            newMap.set(iconName, folderPath);
+          }
+          return newMap;
+        });
+        
+        // Set preview icon to the first selected icon
+        setSelectedSingleColorIcons(prev => {
+          if (prev && prev.size > 0) {
+            const firstIcon = Array.from(prev)[0];
+            setSelectedIcon(firstIcon);
+            setSelectedGroup("entire_icon");
+            
+            // Set the SVG URL for preview
+            const pngUrl = `${backendUrl}/single-color-files/${firstIcon}.png`;
+            const svgUrl = `${backendUrl}/single-color-files/${firstIcon}.svg`;
+            
+            fetch(svgUrl, { method: 'HEAD' })
+              .then(response => {
+                if (response.ok) {
+                  setSvgUrl(svgUrl);
+                } else {
+                  setSvgUrl(pngUrl);
+                }
+              })
+              .catch(() => {
+                setSvgUrl(pngUrl);
+              });
+          } else {
+            // No icons selected, clear preview
+            setSelectedIcon(null);
+            setSvgUrl("");
+          }
+          return prev;
+        });
       } else if (activeTab === "flags") {
         setSelectedFlags(prev => {
           const newSet = new Set(prev || []);
@@ -1228,6 +1309,7 @@ function App() {
     try {
       if (activeTab === "icons") return selectedIcons ? selectedIcons.size : 0;
       if (activeTab === "colorful-icons") return selectedColorfulIcons ? selectedColorfulIcons.size : 0;
+      if (activeTab === "single-color") return selectedSingleColorIcons ? selectedSingleColorIcons.size : 0;
       if (activeTab === "flags") return selectedFlags ? selectedFlags.size : 0;
       return 0;
     } catch (error) {
@@ -1266,6 +1348,37 @@ function App() {
     } catch (error) {
       console.error('Error applying color to multiple icons:', error);
       toast.error("Failed to apply color to some icons");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyColorToMultipleSingleColorIcons = async (color) => {
+    if (activeTab !== "single-color") return;
+    
+    const selectedIconList = Array.from(selectedSingleColorIcons);
+    if (selectedIconList.length === 0) return;
+    
+    try {
+      setLoading(true);
+      
+      // Apply color to all selected single color icons
+      const promises = selectedIconList.map(iconName => {
+        return axios.post(`${backendUrl}/single-color/update`, {
+          icon_name: iconName + ".svg",
+          color: color
+        });
+      });
+      
+      await Promise.all(promises);
+      
+      // Force refresh of the preview by updating the selectedSingleColorIcons set
+      setSelectedSingleColorIcons(prev => new Set(prev));
+      
+      toast.success(`Color applied to ${selectedIconList.length} single color icons!`);
+    } catch (error) {
+      console.error('Error applying color to multiple single color icons:', error);
+      toast.error("Failed to apply color to some single color icons");
     } finally {
       setLoading(false);
     }
@@ -1387,6 +1500,36 @@ function App() {
     }
   };
 
+  const resetMultipleSingleColorIconsToOriginal = async () => {
+    if (activeTab !== "single-color") return;
+    
+    const selectedIconList = Array.from(selectedSingleColorIcons);
+    if (selectedIconList.length === 0) return;
+    
+    try {
+      setLoading(true);
+      
+      // Reset all selected single color icons to original colors
+      const promises = selectedIconList.map(iconName => {
+        return axios.post(`${backendUrl}/single-color/revert`, {
+          icon_name: iconName + ".svg"
+        });
+      });
+      
+      await Promise.all(promises);
+      
+      // Force refresh of the preview by updating the selectedSingleColorIcons set
+      setSelectedSingleColorIcons(prev => new Set(prev));
+      
+      toast.success(`Reset ${selectedIconList.length} single color icons to original colors!`);
+    } catch (error) {
+      console.error('Error resetting multiple single color icons to original colors:', error);
+      toast.error("Failed to reset some single color icons to original colors");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleIconClick = (iconName) => {
     try {
       if (isMultiSelectMode) {
@@ -1435,6 +1578,26 @@ function App() {
     try {
       if (isMultiSelectMode) {
         toggleIconSelection(iconName);
+        // Set the selected icon for display purposes even in multi-select mode
+        setSelectedIcon(iconName);
+        setSelectedGroup("entire_icon"); // Set a special group for single color icons
+        
+        // Check for both PNG and SVG files
+        const pngUrl = `${backendUrl}/single-color-files/${iconName}.png`;
+        const svgUrl = `${backendUrl}/single-color-files/${iconName}.svg`;
+        
+        // Try to load SVG first, fallback to PNG
+        fetch(svgUrl, { method: 'HEAD' })
+          .then(response => {
+            if (response.ok) {
+              setSvgUrl(svgUrl);
+            } else {
+              setSvgUrl(pngUrl);
+            }
+          })
+          .catch(() => {
+            setSvgUrl(pngUrl);
+          });
         return;
       }
       
@@ -2170,6 +2333,11 @@ function App() {
                         }`}
                         onClick={() => handleSingleColorIconClick(item)}>
                         <span>{item}</span>
+                        {isMultiSelectMode && (
+                          <span className="ml-2">
+                            {selectedSingleColorIcons && selectedSingleColorIcons.has(item) ? '☑️' : '☐'}
+                          </span>
+                        )}
                       </button>
                     ))
                   ) : (
@@ -2182,7 +2350,7 @@ function App() {
                         return (
                           <button
                             key={item}
-                            className={`flex flex-col items-center p-2 rounded-lg border transition w-full h-28 justify-center ${
+                            className={`flex flex-col items-center p-2 rounded-lg border transition w-full h-28 justify-center relative ${
                               selectedIcon === item 
                                 ? 'bg-[#2E5583] text-white font-semibold' 
                                 : darkMode 
@@ -2191,6 +2359,11 @@ function App() {
                             }`}
                             onClick={() => handleSingleColorIconClick(item)}
                           >
+                            {isMultiSelectMode && (
+                              <span className="absolute top-1 right-1 text-lg">
+                                {selectedSingleColorIcons && selectedSingleColorIcons.has(item) ? '☑️' : '☐'}
+                              </span>
+                            )}
                             <img
                               src={svgUrl}
                               alt={item}
@@ -2382,6 +2555,46 @@ function App() {
                       💡 <strong>Tip:</strong> Single color icons can be recolored entirely. Select a color below to change the entire icon.
                     </p>
                   </div>
+                  
+                  {/* Multi-select actions for single color icons */}
+                  {isMultiSelectMode && activeTab === "single-color" && (
+                    <div className={`p-4 rounded-lg border-2 border-blue-500 ${darkMode ? 'bg-[#1a365d]' : 'bg-blue-50'}`}>
+                      <h4 className={`text-md font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                        {selectedSingleColorIcons && selectedSingleColorIcons.size > 0 
+                          ? `Apply to ${selectedSingleColorIcons.size} selected icons:` 
+                          : 'Select single color icons to apply actions:'
+                        }
+                      </h4>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => applyColorToMultipleSingleColorIcons(currentColor)}
+                          disabled={loading || !selectedSingleColorIcons || selectedSingleColorIcons.size === 0}
+                          className={`px-4 py-2 rounded-lg transition ${
+                            loading || !selectedSingleColorIcons || selectedSingleColorIcons.size === 0
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : darkMode 
+                                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                : 'bg-blue-500 text-white hover:bg-blue-600'
+                          }`}
+                        >
+                          {loading ? 'Applying...' : 'Apply Color'}
+                        </button>
+                        <button
+                          onClick={resetMultipleSingleColorIconsToOriginal}
+                          disabled={loading || !selectedSingleColorIcons || selectedSingleColorIcons.size === 0}
+                          className={`px-4 py-2 rounded-lg transition ${
+                            loading || !selectedSingleColorIcons || selectedSingleColorIcons.size === 0
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : darkMode 
+                                ? 'bg-red-600 text-white hover:bg-red-700' 
+                                : 'bg-red-500 text-white hover:bg-red-600'
+                          }`}
+                        >
+                          {loading ? 'Resetting...' : 'Reset to Original'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 // Icon groups interface
@@ -2529,7 +2742,7 @@ function App() {
             )}
 
             {/* Single Color Picker */}
-            {activeTab === "single-color" && selectedIcon && (
+            {activeTab === "single-color" && (selectedIcon || (isMultiSelectMode && selectedSingleColorIcons && selectedSingleColorIcons.size > 0)) && (
               <div className="mt-6">
                 <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Color Picker
@@ -2574,7 +2787,7 @@ function App() {
                 </div>
                 <div className="flex gap-2 mt-4">
                   <button
-                    onClick={resetColor}
+                    onClick={isMultiSelectMode && selectedSingleColorIcons && selectedSingleColorIcons.size > 0 ? resetMultipleSingleColorIconsToOriginal : resetColor}
                     disabled={loading}
                     className={`px-4 py-2 rounded-lg transition ${
                       loading 
@@ -2584,7 +2797,7 @@ function App() {
                           : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
                     }`}
                   >
-                    Reset
+                    {isMultiSelectMode && selectedSingleColorIcons && selectedSingleColorIcons.size > 0 ? 'Reset All Selected' : 'Reset'}
                   </button>
                 </div>
               </div>
@@ -2638,30 +2851,48 @@ function App() {
             )}
 
             {/* Export Options for Single Color Icons */}
-            {activeTab === "single-color" && selectedIcon && (
+            {activeTab === "single-color" && (selectedIcon || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0)) && (
               <div className="mt-6">
                 <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Export Options
                 </h4>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
-                    onClick={exportSvg}
+                    onClick={isMultiSelectMode ? exportMultipleSvg : exportSvg}
                     className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
                   >
-                    Export SVG
+                    {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} SVGs` : "Export SVG"}
                   </button>
                   <button
-                    onClick={exportPng}
+                    onClick={isMultiSelectMode ? exportMultiplePng : exportPng}
                     className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
                   >
-                    Export PNG
+                    {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 ? `Export ${getSelectedCount()} PNGs` : "Export PNG"}
                   </button>
-                  <button
-                    onClick={handleCopyAsImage}
-                    className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
-                  >
-                    Copy to Clipboard
-                  </button>
+                  {isMultiSelectMode && getSelectedCount && getSelectedCount() > 0 && (
+                    <>
+                      <button
+                        onClick={() => exportMultipleZip("svg")}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                      >
+                        Export ZIP (SVG)
+                      </button>
+                      <button
+                        onClick={() => exportMultipleZip("png")}
+                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-green-100 text-gray-700'}`}
+                      >
+                        Export ZIP (PNG)
+                      </button>
+                    </>
+                  )}
+                  {!isMultiSelectMode && (
+                    <button
+                      onClick={handleCopyAsImage}
+                      className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-pink-100 text-gray-700'}`}
+                    >
+                      Copy to Clipboard
+                    </button>
+                  )}
                 </div>
               </div>
             )}
