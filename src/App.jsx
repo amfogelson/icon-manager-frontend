@@ -10,16 +10,16 @@ let debounceTimer = null;
 // Top Navigation Component
 function TopNavigation({ currentPage, setCurrentPage, darkMode, setDarkMode, setShowFeedbackModal, isAdmin, backendUrl, setAllFeedback, setShowFeedbackAdmin }) {
   return (
-    <nav className={`w-full px-4 py-3 flex items-center justify-between shadow-md ${darkMode ? 'bg-gray-900' : 'bg-white'} mb-4`}>
+    <nav className={`w-full px-4 py-3 flex items-center justify-between shadow-md ${darkMode ? 'bg-[#282828]' : 'bg-white'} mb-4`}>
       <div className="flex items-center gap-6">
         <button
-          className={`font-semibold text-lg transition-colors ${currentPage === 'icons' ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-white' : 'text-gray-700')}`}
+          className={`font-semibold text-lg transition-colors ${currentPage === 'icons' ? (darkMode ? 'text-[#d4db50]' : 'text-[#27a5f3]') : (darkMode ? 'text-white' : 'text-gray-700')}`}
           onClick={() => setCurrentPage('icons')}
         >
           Icons
         </button>
         <button
-          className={`font-semibold text-lg transition-colors ${currentPage === 'infographics' ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-white' : 'text-gray-700')}`}
+          className={`font-semibold text-lg transition-colors ${currentPage === 'infographics' ? (darkMode ? 'text-[#d4db50]' : 'text-[#27a5f3]') : (darkMode ? 'text-white' : 'text-gray-700')}`}
           onClick={() => setCurrentPage('infographics')}
         >
           Infographics
@@ -1865,12 +1865,12 @@ function App() {
       
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-10 rounded-xl shadow-lg max-w-6xl mx-auto mb-8`}>
+        <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-10 rounded-sm shadow-lg max-w-6xl mx-auto mb-8`}>
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <img src="/Icon Manager.svg" alt="Icon Manager Logo" className="w-10 h-10 mr-2" />
-              <div>
-                <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                          <div className="flex items-center gap-3">
+                <img src={darkMode ? "/Icon Manager_dark.svg" : "/Icon Manager.svg"} alt="Icon Manager Logo" className="w-12 h-12 mr-2" />
+                <div>
+                <h1 className={`text-3xl font-bold header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   {currentPage === "icons" ? "Icon Manager" : "Infographics Manager"}
                 </h1>
                 <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>
@@ -1934,8 +1934,8 @@ function App() {
         {/* Icons Page Content */}
         <div className={`flex gap-8 ${currentPage === "icons" ? "" : "hidden"}`}>
           {/* Left Panel - Icon List */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[400px] flex-shrink-0`}>
-            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
+          <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-4 shadow rounded-sm w-[400px] flex-shrink-0`}>
+            <h3 className={`text-xl font-semibold mb-4 header-font ${darkMode ? 'text-white' : ''}`}>
               {activeTab === "colorful-icons" ? "Colorful Icons" : activeTab === "flags" ? "Flags" : "Icons"}
             </h3>
             
@@ -1945,7 +1945,7 @@ function App() {
                 onClick={() => handleTabChange("icons")}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "icons"
-                    ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
+                    ? `${darkMode ? 'text-[#d4db50] border-b-2 border-[#d4db50]' : 'text-[#27a5f3] border-b-2 border-[#27a5f3]'}`
                     : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
                 }`}
               >
@@ -1955,7 +1955,7 @@ function App() {
                 onClick={() => handleTabChange("colorful-icons")}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "colorful-icons"
-                    ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
+                    ? `${darkMode ? 'text-[#d4db50] border-b-2 border-[#d4db50]' : 'text-[#27a5f3] border-b-2 border-[#27a5f3]'}`
                     : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
                 }`}
               >
@@ -1965,7 +1965,7 @@ function App() {
                 onClick={() => handleTabChange("single-color")}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "single-color"
-                    ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
+                    ? `${darkMode ? 'text-[#d4db50] border-b-2 border-[#d4db50]' : 'text-[#27a5f3] border-b-2 border-[#27a5f3]'}`
                     : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
                 }`}
               >
@@ -1975,7 +1975,7 @@ function App() {
                 onClick={() => handleTabChange("flags")}
                 className={`px-4 py-2 font-medium transition-colors ${
                   activeTab === "flags"
-                    ? `${darkMode ? 'text-[#2E5583] border-b-2 border-[#2E5583]' : 'text-blue-600 border-b-2 border-blue-600'}`
+                    ? `${darkMode ? 'text-[#d4db50] border-b-2 border-[#d4db50]' : 'text-[#27a5f3] border-b-2 border-[#27a5f3]'}`
                     : `${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
                 }`}
               >
@@ -2010,19 +2010,17 @@ function App() {
             {(activeTab === "icons" || activeTab === "colorful-icons") && (
               <div className="flex justify-end mb-2 gap-2">
                 <button
-                  className={`flex items-center px-2 py-1 rounded ${iconListView === "list" ? "bg-blue-500 text-white" : darkMode ? "bg-gray-700 text-white" : "bg-gray-200"}`}
+                  className={`flex items-center px-2 py-1 rounded ${iconListView === "list" ? (darkMode ? "bg-[#d4db50] text-black" : "bg-[#27a5f3] text-white") : darkMode ? "bg-gray-700 text-white" : "bg-gray-200"}`}
                   onClick={() => setIconListView("list")}
                   title="List View"
                 >
-                  <span className="mr-1">🔤</span>
                   <span className="text-xs font-medium">List View</span>
                 </button>
                 <button
-                  className={`flex items-center px-2 py-1 rounded ${iconListView === "grid" ? "bg-blue-500 text-white" : darkMode ? "bg-gray-700 text-white" : "bg-gray-200"}`}
+                  className={`flex items-center px-2 py-1 rounded ${iconListView === "grid" ? (darkMode ? "bg-[#d4db50] text-black" : "bg-[#27a5f3] text-white") : darkMode ? "bg-gray-700 text-white" : "bg-gray-200"}`}
                   onClick={() => setIconListView("grid")}
                   title="Grid View"
                 >
-                  <span className="mr-1">🖼️</span>
                   <span className="text-xs font-medium">Grid View</span>
                 </button>
               </div>
@@ -2041,9 +2039,9 @@ function App() {
                   .map(folderName => (
                     <button
                       key={folderName}
-                      className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700'}`}
+                      className={`px-4 py-2 rounded-lg transition border text-left folder-font ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' : 'hover:bg-blue-100 text-gray-700 border-gray-500'}`}
                       onClick={() => loadIconsFromFolder(folderName)}>
-                      {activeTab === "colorful-icons" ? "🎨" : "📁"} {folderName} ({(activeTab === "icons" ? folders : colorfulFolders)[folderName].length} icons)
+                      {folderName} ({(activeTab === "icons" ? folders : colorfulFolders)[folderName].length} icons)
                     </button>
                   ))
               )}
@@ -2063,18 +2061,18 @@ function App() {
                       return (
                         <button
                           key={typeof item === 'string' ? item : `${item.folder}/${item.name}`}
-                          className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
+                          className={`px-4 py-2 rounded-lg transition border text-left flex items-center justify-between ${
                             isMultiSelectMode 
                               ? (activeTab === "icons" && selectedIcons && selectedIcons.has(itemName)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(itemName))
                                 ? 'bg-blue-600 text-white font-semibold border-blue-600'
                                 : darkMode 
-                                  ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                  : 'hover:bg-blue-100 text-gray-700'
+                                  ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                  : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                               : selectedIcon === itemName || selectedCountry === itemName 
                                 ? 'bg-[#2E5583] text-white font-semibold' 
                                 : darkMode 
-                                  ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                  : 'hover:bg-blue-100 text-gray-700'
+                                  ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                  : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                           }`}
                           onClick={() => {
                             if (activeTab === "icons") {
@@ -2127,13 +2125,13 @@ function App() {
                                 ? (activeTab === "icons" && selectedIcons && selectedIcons.has(itemName)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(itemName))
                                   ? 'bg-blue-600 text-white font-semibold border-blue-600'
                                   : darkMode 
-                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                    : 'hover:bg-blue-100 text-gray-700'
+                                    ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                    : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                                 : selectedIcon === itemName || selectedCountry === itemName 
                                   ? 'bg-[#2E5583] text-white font-semibold' 
                                   : darkMode 
-                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                    : 'hover:bg-blue-100 text-gray-700'
+                                    ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                    : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                             }`}
                             onClick={() => {
                               if (activeTab === "icons") {
@@ -2192,18 +2190,18 @@ function App() {
                       return (
                         <button
                           key={typeof item === 'string' ? item : `${item.folder}/${item.name}`}
-                          className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
+                          className={`px-4 py-2 rounded-lg transition border text-left flex items-center justify-between ${
                             isMultiSelectMode 
                               ? (activeTab === "icons" && selectedIcons && selectedIcons.has(itemName)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(itemName))
                                 ? 'bg-blue-600 text-white font-semibold border-blue-600'
                                 : darkMode 
-                                  ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                  : 'hover:bg-blue-100 text-gray-700'
+                                  ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                  : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                               : selectedIcon === itemName || selectedCountry === itemName 
                                 ? 'bg-[#2E5583] text-white font-semibold' 
                                 : darkMode 
-                                  ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                  : 'hover:bg-blue-100 text-gray-700'
+                                  ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                  : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                           }`}
                           onClick={() => {
                             if (activeTab === "icons") {
@@ -2253,13 +2251,13 @@ function App() {
                                 ? (activeTab === "icons" && selectedIcons && selectedIcons.has(item)) || (activeTab === "colorful-icons" && selectedColorfulIcons && selectedColorfulIcons.has(item))
                                   ? 'bg-blue-600 text-white font-semibold border-blue-600'
                                   : darkMode 
-                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                    : 'hover:bg-blue-100 text-gray-700'
+                                    ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                    : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                                 : selectedIcon === item || selectedCountry === item 
                                   ? 'bg-[#2E5583] text-white font-semibold' 
                                   : darkMode 
-                                    ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                    : 'hover:bg-blue-100 text-gray-700'
+                                    ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                    : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                             }`}
                             onClick={() => {
                               if (activeTab === "icons") {
@@ -2291,31 +2289,44 @@ function App() {
                   )}
                 </>
               )}
-              {activeTab === "flags" && getCountryNames().map(item => (
-                <button
-                  key={item}
-                  className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
-                    isMultiSelectMode 
-                      ? selectedFlags && selectedFlags.has(item)
-                        ? 'bg-blue-600 text-white font-semibold border-blue-600'
-                        : darkMode 
-                          ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                          : 'hover:bg-blue-100 text-gray-700'
-                      : selectedIcon === item || selectedCountry === item 
-                        ? 'bg-[#2E5583] text-white font-semibold' 
-                        : darkMode 
-                          ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                          : 'hover:bg-blue-100 text-gray-700'
-                  }`}
-                  onClick={() => handleFlagClick(item)}>
-                  <span>{item}</span>
-                  {isMultiSelectMode && (
-                    <span className="ml-2">
-                      {selectedFlags && selectedFlags.has(item) ? '☑️' : '☐'}
-                    </span>
-                  )}
-                </button>
-              ))}
+              {activeTab === "flags" && (
+                <div className="grid grid-cols-3 gap-3">
+                  {getCountryNames().map(item => {
+                    const flagUrl = `${backendUrl}/flags/${getFlagFilename(item, flagType)}?t=${Date.now()}`;
+                    return (
+                      <button
+                        key={item}
+                        className={`flex flex-col items-center p-2 rounded-lg border transition w-full h-28 justify-center relative ${
+                          isMultiSelectMode 
+                            ? selectedFlags && selectedFlags.has(item)
+                              ? 'bg-blue-600 text-white font-semibold border-blue-600'
+                              : darkMode 
+                                ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                : 'hover:bg-blue-100 text-gray-700 border-gray-500'
+                            : selectedIcon === item || selectedCountry === item 
+                              ? 'bg-[#2E5583] text-white font-semibold' 
+                              : darkMode 
+                                ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                : 'hover:bg-blue-100 text-gray-700 border-gray-500'
+                        }`}
+                        onClick={() => handleFlagClick(item)}>
+                        {isMultiSelectMode && (
+                          <span className="absolute top-1 right-1 text-lg">
+                            {selectedFlags && selectedFlags.has(item) ? '☑️' : '☐'}
+                          </span>
+                        )}
+                        <img
+                          src={flagUrl}
+                          alt={item}
+                          className="w-12 h-12 object-contain mb-1"
+                          onError={e => e.target.style.display = 'none'}
+                        />
+                        <span className="text-xs truncate w-full text-center">{item}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               
               {/* Single Color Icons List */}
               {activeTab === "single-color" && (
@@ -2324,12 +2335,12 @@ function App() {
                     filteredItems.map(item => (
                       <button
                         key={item}
-                        className={`px-4 py-2 rounded-lg transition border border-gray-500 text-left flex items-center justify-between ${
+                        className={`px-4 py-2 rounded-lg transition border text-left flex items-center justify-between ${
                           selectedIcon === item 
                             ? 'bg-[#2E5583] text-white font-semibold' 
                             : darkMode 
-                              ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                              : 'hover:bg-blue-100 text-gray-700'
+                              ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                              : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                         }`}
                         onClick={() => handleSingleColorIconClick(item)}>
                         <span>{item}</span>
@@ -2354,8 +2365,8 @@ function App() {
                               selectedIcon === item 
                                 ? 'bg-[#2E5583] text-white font-semibold' 
                                 : darkMode 
-                                  ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' 
-                                  : 'hover:bg-blue-100 text-gray-700'
+                                  ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' 
+                                  : 'hover:bg-blue-100 text-gray-700 border-gray-500'
                             }`}
                             onClick={() => handleSingleColorIconClick(item)}
                           >
@@ -2393,8 +2404,8 @@ function App() {
             </div>
           </div>
 
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[450px] flex-shrink-0`}>
-            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
+          <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-4 shadow rounded-sm w-[450px] flex-shrink-0`}>
+            <h3 className={`text-xl font-semibold mb-4 header-font ${darkMode ? 'text-white' : ''}`}>
               {activeTab === "colorful-icons" ? "Colorful Icon Options" : activeTab === "single-color" ? "Single Color Options" : "Color Change"}
             </h3>
                           {(selectedIcon || selectedCountry || (isMultiSelectMode && activeTab === "icons" && selectedIcons && selectedIcons.size > 0) || (isMultiSelectMode && activeTab === "flags" && selectedFlags && selectedFlags.size > 0) || (isMultiSelectMode && activeTab === "colorful-icons") || activeTab === "single-color") ? (
@@ -2440,7 +2451,7 @@ function App() {
                   {/* Multi-select actions for flags */}
                   {isMultiSelectMode && selectedFlags && selectedFlags.size > 0 && (
                     <div className={`p-4 rounded-lg border-2 border-blue-500 ${darkMode ? 'bg-[#1a365d]' : 'bg-blue-50'}`}>
-                      <h4 className={`text-md font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      <h4 className={`text-md font-semibold mb-3 header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         Apply to {selectedFlags.size} selected flags:
                       </h4>
                       <div className="flex gap-2">
@@ -2559,7 +2570,7 @@ function App() {
                   {/* Multi-select actions for single color icons */}
                   {isMultiSelectMode && activeTab === "single-color" && (
                     <div className={`p-4 rounded-lg border-2 border-blue-500 ${darkMode ? 'bg-[#1a365d]' : 'bg-blue-50'}`}>
-                      <h4 className={`text-md font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      <h4 className={`text-md font-semibold mb-3 header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         {selectedSingleColorIcons && selectedSingleColorIcons.size > 0 
                           ? `Apply to ${selectedSingleColorIcons.size} selected icons:` 
                           : 'Select single color icons to apply actions:'
@@ -2621,7 +2632,7 @@ function App() {
                   {/* Multi-select actions for icons */}
                   {isMultiSelectMode && selectedIcons && selectedIcons.size > 0 && (
                     <div className={`p-4 rounded-lg border-2 border-blue-500 ${darkMode ? 'bg-[#1a365d]' : 'bg-blue-50'}`}>
-                      <h4 className={`text-md font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      <h4 className={`text-md font-semibold mb-3 header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                         Apply to {selectedIcons.size} selected icons:
                       </h4>
                       <div className="flex gap-2">
@@ -2678,7 +2689,7 @@ function App() {
             {/* Color Picker */}
             {(selectedGroup || (isMultiSelectMode && activeTab === "icons" && selectedIcons && selectedIcons.size > 0)) && activeTab === "icons" && (
               <div className="mt-6">
-                <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                <h4 className={`text-lg font-semibold mb-3 header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Color Picker
                 </h4>
                 <div className="grid grid-cols-3 gap-2 mb-4">
@@ -2744,7 +2755,7 @@ function App() {
             {/* Single Color Picker */}
             {activeTab === "single-color" && (selectedIcon || (isMultiSelectMode && selectedSingleColorIcons && selectedSingleColorIcons.size > 0)) && (
               <div className="mt-6">
-                <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                <h4 className={`text-lg font-semibold mb-3 header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Color Picker
                 </h4>
                 <div className="grid grid-cols-3 gap-2 mb-4">
@@ -2806,7 +2817,7 @@ function App() {
             {/* Export Options */}
             {(selectedIcon || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0)) && activeTab !== "flags" && activeTab !== "single-color" && (
               <div className="mt-6">
-                <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                <h4 className={`text-lg font-semibold mb-3 header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Export Options
                 </h4>
                 <div className="flex gap-2 flex-wrap">
@@ -2853,7 +2864,7 @@ function App() {
             {/* Export Options for Single Color Icons */}
             {activeTab === "single-color" && (selectedIcon || (isMultiSelectMode && getSelectedCount && getSelectedCount() > 0)) && (
               <div className="mt-6">
-                <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                <h4 className={`text-lg font-semibold mb-3 header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                   Export Options
                 </h4>
                 <div className="flex gap-2 flex-wrap">
@@ -2902,7 +2913,7 @@ function App() {
               <div className="mt-6">
                 {!isMultiSelectMode && (
                   <>
-                    <h4 className={`text-lg font-semibold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <h4 className={`text-lg font-semibold mb-3 header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                       Export Options
                     </h4>
                   </>
@@ -2952,8 +2963,8 @@ function App() {
           </div>
 
           {/* Right Panel - Preview */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl flex-1`}>
-            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
+          <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-4 shadow rounded-sm flex-1`}>
+            <h3 className={`text-xl font-semibold mb-4 header-font ${darkMode ? 'text-white' : ''}`}>
               Preview
             </h3>
             {(() => {
@@ -3072,8 +3083,8 @@ function App() {
         {/* Infographics Page Content */}
         <div className={`flex gap-8 ${currentPage === "infographics" ? "" : "hidden"}`}>
           {/* Left Panel - Infographics List */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl w-[400px] flex-shrink-0`}>
-            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
+          <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-4 shadow rounded-sm w-[400px] flex-shrink-0`}>
+            <h3 className={`text-xl font-semibold mb-4 header-font ${darkMode ? 'text-white' : ''}`}>
               Infographics
             </h3>
             
@@ -3087,7 +3098,7 @@ function App() {
                   }}
                   className={`flex-1 px-3 py-2 rounded-lg transition-colors font-medium ${
                     infographicTheme === 'light'
-                      ? (darkMode ? 'bg-[#2E5583] text-white' : 'bg-blue-500 text-white')
+                      ? (darkMode ? 'bg-[#d4db50] text-black' : 'bg-[#27a5f3] text-white')
                       : (darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
                   }`}
                 >
@@ -3100,7 +3111,7 @@ function App() {
                   }}
                   className={`flex-1 px-3 py-2 rounded-lg transition-colors font-medium ${
                     infographicTheme === 'bcore'
-                      ? (darkMode ? 'bg-[#2E5583] text-white' : 'bg-blue-500 text-white')
+                      ? (darkMode ? 'bg-[#d4db50] text-black' : 'bg-[#27a5f3] text-white')
                       : (darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300')
                   }`}
                 >
@@ -3150,10 +3161,10 @@ function App() {
                 .map(i => (
                   <button
                     key={i.filename}
-                    className={`flex items-center gap-3 p-2 rounded-lg transition border border-gray-500 text-left ${
+                    className={`flex items-center gap-3 p-2 rounded-lg transition border text-left ${
                       selectedInfographic && selectedInfographic.filename === i.filename 
                         ? (darkMode ? 'bg-[#2E5583] text-white font-semibold border-[#2E5583]' : 'bg-blue-100 text-blue-800 font-semibold border-blue-600') 
-                        : (darkMode ? 'hover:bg-[#2E5583] text-white bg-[#1a365d]' : 'hover:bg-blue-100 text-gray-700')
+                        : (darkMode ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' : 'hover:bg-blue-100 text-gray-700 border-gray-500')
                     }`}
                     onClick={() => setSelectedInfographic(i)}
                   >
@@ -3179,8 +3190,8 @@ function App() {
           </div>
 
           {/* Right Panel - Infographics Preview */}
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 shadow rounded-xl flex-1`}>
-            <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : ''}`}>
+          <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-4 shadow rounded-sm flex-1`}>
+            <h3 className={`text-xl font-semibold mb-4 header-font ${darkMode ? 'text-white' : ''}`}>
               Preview
             </h3>
             
@@ -3203,22 +3214,9 @@ function App() {
                 
                 {/* Infographic Details */}
                 <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <h4 className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  <h4 className={`font-semibold header-font text-center ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                     {selectedInfographic.title}
                   </h4>
-                  <div className="space-y-1 text-sm">
-                    <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'}`}>
-                      <p className="font-semibold">
-                        📍 <span className="font-medium">Find this on Slide:</span> {selectedInfographic.slide_number}
-                      </p>
-                    </div>
-                    <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
-                      <span className="font-medium">Category:</span> {selectedInfographic.category}
-                    </p>
-                    <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
-                      <span className="font-medium">Filename:</span> {selectedInfographic.filename}
-                    </p>
-                  </div>
                 </div>
                 
                 {/* Download Button */}
@@ -3258,9 +3256,9 @@ function App() {
       {/* Feedback Modal */}
       {showFeedbackModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-md w-full mx-4`}>
+          <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-6 rounded-sm shadow-lg max-w-md w-full mx-4`}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+              <h3 className={`text-xl font-semibold header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                 Submit Feedback
               </h3>
               <button
@@ -3396,9 +3394,9 @@ function App() {
       {/* Feedback Admin Modal */}
       {showFeedbackAdmin && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-xl shadow-lg max-w-6xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col`}>
+          <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-6 rounded-sm shadow-lg max-w-6xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col`}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+              <h3 className={`text-xl font-semibold header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                 All Feedback ({allFeedback.length})
               </h3>
               <button

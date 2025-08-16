@@ -5,7 +5,12 @@ export default {
     "./src/**/*.{js,jsx,ts,tsx}"
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        'franklin': ['Franklin Gothic ATF', 'sans-serif'],
+        'larabie': ['Fira Sans', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
 }
