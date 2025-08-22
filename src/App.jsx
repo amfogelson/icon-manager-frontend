@@ -25,6 +25,12 @@ function TopNavigation({ currentPage, setCurrentPage, darkMode, setDarkMode, set
           Infographics
         </button>
         <button
+          className={`font-semibold text-lg transition-colors ${currentPage === 'bcore-branding' ? (darkMode ? 'text-[#d4db50]' : 'text-[#27a5f3]') : (darkMode ? 'text-white' : 'text-gray-700')}`}
+          onClick={() => setCurrentPage('bcore-branding')}
+        >
+          BCORE Branding
+        </button>
+        <button
           className={`font-semibold text-lg transition-colors ${darkMode ? 'text-white' : 'text-gray-700'} hover:text-blue-500`}
           onClick={() => setShowFeedbackModal(true)}
         >
@@ -140,6 +146,14 @@ function App() {
   const [infographicCategory, setInfographicCategory] = useState('All');
   const [infographicTheme, setInfographicTheme] = useState('light'); // 'light' or 'bcore'
 
+  // BCORE Branding state
+  const [bcoreContent, setBcoreContent] = useState([]);
+  const [selectedBcoreItem, setSelectedBcoreItem] = useState(null);
+  const [bcoreSearch, setBcoreSearch] = useState("");
+  const [bcoreCategory, setBcoreCategory] = useState('All');
+  const [currentBcoreFolder, setCurrentBcoreFolder] = useState(null);
+  const [bcoreFolders, setBcoreFolders] = useState({});
+
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
   // Debug theme changes
@@ -199,6 +213,94 @@ function App() {
 
   // Load infographics data
   useEffect(() => {
+    axios.get(`${backendUrl}/infographics`)
+      .then(res => setInfographics(res.data.infographics || []))
+      .catch(err => console.error(err));
+  }, [backendUrl]);
+
+      // Load BCORE branding content
+  useEffect(() => {
+    // For now, we'll use a static list of files from the BCORE_Images_Video folder
+    // In a real implementation, you'd want to create a backend endpoint to scan the folder
+    const bcoreFiles = [
+      // Videos
+      { name: '01.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/01.mp4` },
+      { name: '02.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/02.mp4` },
+      { name: '03.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/03.mp4` },
+      { name: '04.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/04.mp4` },
+      { name: '05.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/05.mp4` },
+      { name: '07.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/07.mp4` },
+      { name: '08.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/08.mp4` },
+      { name: '09.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/09.mp4` },
+      { name: '10.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/10.mp4` },
+      { name: '11.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/11.mp4` },
+      { name: 'Bcore_circle.mp4', type: 'video', category: 'Videos', path: `${backendUrl}/bcore/Bcore_circle.mp4` },
+      // Logos
+      { name: 'B_Cross.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Cross.svg` },
+      { name: 'B_Filled.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Filled.svg` },
+      { name: 'B_Circles.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Circles.svg` },
+      { name: 'B_Bcore.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Bcore.svg` },
+      { name: 'B_Target_Yellow.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Target_Yellow.svg` },
+      { name: 'B_Target_Grey.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Target_Grey.svg` },
+      { name: 'B_Target3.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Target3.svg` },
+      { name: 'B_Signs_1.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Signs_1.svg` },
+      { name: 'B_Percents.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Percents.svg` },
+      { name: 'B_Warning.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Warning.svg` },
+      { name: 'B_Warning_Orange.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Warning_Orange.svg` },
+      { name: 'B_Signs_Orange.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Signs_Orange.svg` },
+      { name: 'B_Percents_Orange.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Percents_Orange.svg` },
+      { name: 'B_Target2.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Target2.svg` },
+      { name: 'B_Target1.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Target1.svg` },
+      { name: 'B_Slash.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Slash.svg` },
+      { name: 'B_Signs.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Signs.svg` },
+      // Images
+      { name: 'B&W CAMERA LENS copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/B&W CAMERA LENS copy.png` },
+      { name: 'B&W CONTROL ROOM copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/B&W CONTROL ROOM copy.png` },
+      { name: 'B&W MAN HACKER copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/B&W MAN HACKER copy.png` },
+      { name: 'B&W MAN STARING AT MONITOR copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/B&W MAN STARING AT MONITOR copy.png` },
+      { name: 'B&W MAN WITH CODE copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/B&W MAN WITH CODE copy.png` },
+      { name: 'B&W SERVER ROOM copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/B&W SERVER ROOM copy.png` },
+      { name: 'b-core glitch 01 copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/b-core glitch 01 copy.png` },
+      { name: 'b-core server room 2 copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/b-core server room 2 copy.png` },
+      { name: 'b-core tech lines copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/b-core tech lines copy.png` },
+      { name: 'Bcore Server Room 2 copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/Bcore Server Room 2 copy.png` },
+      { name: 'CIRCUIT BOARD B copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/CIRCUIT BOARD B copy.png` },
+      { name: 'CIRCUIT TO ROAD AND CARS OVERHEAD copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/CIRCUIT TO ROAD AND CARS OVERHEAD copy.png` },
+      { name: 'CITY TO CIRCUIT BOARD copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/CITY TO CIRCUIT BOARD copy.png` },
+      { name: 'COLORIZED MAP.jpg', type: 'image', category: 'Images', path: `${backendUrl}/bcore/COLORIZED MAP.jpg` },
+      { name: 'COLORIZED SCHEMATIC copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/COLORIZED SCHEMATIC copy.png` },
+      { name: 'dark background 3 2 2 3 copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/dark background 3 2 2 3 copy.png` },
+      { name: 'Dark bckgrd Control room ops copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/Dark bckgrd Control room ops copy.png` },
+      { name: 'Dark bckgrd nice suit copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/Dark bckgrd nice suit copy.png` },
+      { name: 'Dark bckgrd Shadow figure copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/Dark bckgrd Shadow figure copy.png` },
+      { name: 'Dark bckgrd shadowy figures copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/Dark bckgrd shadowy figures copy.png` },
+      { name: 'DARK COMPUTER ROOM PERSON copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/DARK COMPUTER ROOM PERSON copy.png` },
+      { name: 'HUMAN TRACKING SYSTEMS copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/HUMAN TRACKING SYSTEMS copy.png` },
+      { name: 'MOTHERBOARD WITH LOGO B copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/MOTHERBOARD WITH LOGO B copy.png` },
+      { name: 'REVERSED _B_ copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/REVERSED _B_ copy.png` },
+      { name: 'ROAD TO WIRES copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/ROAD TO WIRES copy.png` },
+      { name: 'TRACKING DOTS ON FACE copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/TRACKING DOTS ON FACE copy.png` },
+      { name: 'WIRE TO ROAD copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/WIRE TO ROAD copy.png` },
+    ];
+    
+    // Organize files by folders and add thumbnail paths for videos
+    const videos = bcoreFiles.filter(item => item.category === 'Videos').map(item => ({
+      ...item,
+      thumbnailPath: `${backendUrl}/bcore/thumbnail/${item.name}`
+    }));
+    const images = bcoreFiles.filter(item => item.category === 'Images');
+    const logos = bcoreFiles.filter(item => item.category === 'Logos');
+    
+    const bcoreFoldersData = {
+      'Videos': videos,
+      'Images': images,
+      'Logos': logos
+    };
+    
+    setBcoreFolders(bcoreFoldersData);
+    setBcoreContent(bcoreFiles);
+  }, []);
+  useEffect(() => {
     fetch('/infographics/mapping.json')
       .then(res => res.json())
       .then(data => {
@@ -244,6 +346,32 @@ function App() {
       }
     }
   }, [darkMode]);
+
+  // Refresh icons when dark mode changes to show correct default colors
+  useEffect(() => {
+    // Force refresh of selected icon if one is selected
+    if (selectedIcon) {
+      const folderPath = currentFolder || "Root";
+      const modeSuffix = darkMode ? "-dark" : "-light";
+      
+      if (activeTab === "icons") {
+        if (folderPath === "Root") {
+          setSvgUrl(`${backendUrl}/static-icons${modeSuffix}/${selectedIcon}.svg?t=${Date.now()}`);
+        } else {
+          setSvgUrl(`${backendUrl}/static-icons${modeSuffix}/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
+        }
+      } else if (activeTab === "single-color") {
+        setSvgUrl(`${backendUrl}/single-color-files${modeSuffix}/${selectedIcon}.svg?t=${Date.now()}`);
+      }
+    }
+    
+    // Force refresh of all icon lists to show correct colors
+    if (activeTab === "icons") {
+      setIcons(prev => [...prev]); // Force re-render
+    } else if (activeTab === "single-color") {
+      setSingleColorIcons(prev => [...prev]); // Force re-render
+    }
+  }, [darkMode, selectedIcon, activeTab, currentFolder, backendUrl]);
 
   // Extract deduplicated country names from flag files
   const getCountryNames = () => {
@@ -313,9 +441,10 @@ function App() {
           svgUrlToSet = `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg`;
         }
       } else if (activeTab === "single-color") {
-        // Use single color path - check for both PNG and SVG
-        const pngUrl = `${backendUrl}/single-color-files/${itemName}.png`;
-        const svgUrl = `${backendUrl}/single-color-files/${itemName}.svg`;
+        // Use single color path - check for both PNG and SVG with mode-specific URLs
+        const modeSuffix = darkMode ? "-dark" : "-light";
+        const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${itemName}.png`;
+        const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${itemName}.svg`;
         
         // Try to load SVG first, fallback to PNG
         fetch(svgUrl, { method: 'HEAD' })
@@ -331,11 +460,12 @@ function App() {
           });
         return; // Exit early since we're handling the URL setting asynchronously
       } else {
-        // Use regular icons path
+        // Use regular icons path with mode-specific URLs
+        const modeSuffix = darkMode ? "-dark" : "-light";
         if (folderPath === "Root") {
-          svgUrlToSet = `${backendUrl}/static/${itemName}.svg`;
+          svgUrlToSet = `${backendUrl}/static-icons${modeSuffix}/${itemName}.svg`;
         } else {
-          svgUrlToSet = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
+          svgUrlToSet = `${backendUrl}/static-icons${modeSuffix}/${folderPath}/${itemName}.svg`;
         }
       }
       console.log('loadGroups setting SVG URL to:', svgUrlToSet);
@@ -363,7 +493,43 @@ function App() {
 
   const handleGroupClick = (group) => {
     setSelectedGroup(group);
-    setLocalPreviewColor(currentColor);
+    
+    // If Grey group is selected, set default color based on current mode
+    if (group.toLowerCase().includes("grey")) {
+      const defaultColor = darkMode ? "#D3D3D3" : "#282828";
+      setCurrentColor(defaultColor);
+      setLocalPreviewColor(defaultColor);
+      
+      // Apply the default color to the Grey group immediately
+      if (selectedIcon) {
+        setLoading(true);
+        const folderPath = currentFolder || "Root";
+        axios.post(`${backendUrl}/update_color`, {
+          icon_name: selectedIcon + ".svg",
+          group_id: group,
+          color: defaultColor,
+          type: activeTab,
+          folder: folderPath,
+          mode: darkMode ? "dark" : "light"
+        }, {
+          headers: { 'Content-Type': 'application/json' }
+        }).then(res => {
+          // Update SVG URL with folder path and mode
+          const modeSuffix = darkMode ? "-dark" : "-light";
+          if (folderPath === "Root") {
+            setSvgUrl(`${backendUrl}/static-icons${modeSuffix}/${selectedIcon}.svg?t=${Date.now()}`);
+          } else {
+            setSvgUrl(`${backendUrl}/static-icons${modeSuffix}/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
+          }
+          setLoading(false);
+        }).catch(err => {
+          console.error(err);
+          setLoading(false);
+        });
+      }
+    } else {
+      setLocalPreviewColor(currentColor);
+    }
   };
 
   const applyColorChange = useCallback((colorToApply) => {
@@ -374,7 +540,8 @@ function App() {
         icon_name: selectedIcon,
         group_id: "entire_flag", // Special identifier for entire flag
         color: colorToApply,
-        type: activeTab
+        type: activeTab,
+        mode: darkMode ? "dark" : "light"
       }, {
         headers: { 'Content-Type': 'application/json' }
       }).then(res => {
@@ -392,13 +559,15 @@ function App() {
       setLoading(true);
       axios.post(`${backendUrl}/single-color/update`, {
         icon_name: selectedIcon,
-        color: colorToApply
+        color: colorToApply,
+        mode: darkMode ? "dark" : "light"
       }, {
         headers: { 'Content-Type': 'application/json' }
       }).then(res => {
-        // Refresh the icon to show the new color
-        const pngUrl = `${backendUrl}/single-color-files/${selectedIcon}.png`;
-        const svgUrl = `${backendUrl}/single-color-files/${selectedIcon}.svg`;
+        // Refresh the icon to show the new color with mode-specific URLs
+        const modeSuffix = darkMode ? "-dark" : "-light";
+        const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${selectedIcon}.png`;
+        const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${selectedIcon}.svg`;
         
         fetch(svgUrl, { method: 'HEAD' })
           .then(response => {
@@ -436,15 +605,17 @@ function App() {
         group_id: selectedGroup,
         color: colorToApply,
         type: activeTab,
-        folder: folderPath
+        folder: folderPath,
+        mode: darkMode ? "dark" : "light"
       }, {
         headers: { 'Content-Type': 'application/json' }
       }).then(res => {
-        // Update SVG URL with folder path
+        // Update SVG URL with folder path and mode
+        const modeSuffix = darkMode ? "-dark" : "-light";
         if (folderPath === "Root") {
-          setSvgUrl(`${backendUrl}/static/${selectedIcon}.svg?t=${Date.now()}`);
+          setSvgUrl(`${backendUrl}/static-icons${modeSuffix}/${selectedIcon}.svg?t=${Date.now()}`);
         } else {
-          setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
+          setSvgUrl(`${backendUrl}/static-icons${modeSuffix}/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
         }
         setLoading(false);
         toast.success("Color updated");
@@ -492,7 +663,8 @@ function App() {
       // Call the backend to export SVG
       const requestData = {
         icon_name: iconName,
-        type: type
+        type: type,
+        mode: darkMode ? "dark" : "light"
       };
       
       if (type === "icon" || type === "colorful-icon") {
@@ -546,7 +718,8 @@ function App() {
       // Call the backend to convert and download PNG
       const requestData = {
         icon_name: iconName,
-        type: type
+        type: type,
+        mode: darkMode ? "dark" : "light"
       };
       
       if (type === "icon") {
@@ -610,11 +783,13 @@ function App() {
               ? `${backendUrl}/colorful-icons/${itemName}.svg`
               : `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg`;
           } else if (activeTab === "single-color") {
-            svgUrl = `${backendUrl}/single-color-files/${itemName}.svg`;
+            const modeSuffix = darkMode ? "-dark" : "-light";
+            svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${itemName}.svg`;
           } else {
+            const modeSuffix = darkMode ? "-dark" : "-light";
             svgUrl = folderPath === "Root" 
-              ? `${backendUrl}/static/${itemName}.svg`
-              : `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
+              ? `${backendUrl}/static-icons${modeSuffix}/${itemName}.svg`
+              : `${backendUrl}/static-icons${modeSuffix}/${folderPath}/${itemName}.svg`;
           }
           
           const response = await fetch(svgUrl);
@@ -689,7 +864,8 @@ function App() {
           
           const requestData = {
             icon_name: iconName,
-            type: type
+            type: type,
+            mode: darkMode ? "dark" : "light"
           };
           
           if (type === "icon") {
@@ -765,7 +941,8 @@ function App() {
         items: selectedItems,
         type: type,
         folder: folderPath,
-        format: format
+        format: format,
+        mode: darkMode ? "dark" : "light"
       };
       
       const response = await axios.post(`${backendUrl}/export-zip`, requestData, {
@@ -804,7 +981,8 @@ function App() {
           icon_name: selectedIcon,
           group_id: "entire_flag",
           color: defaultColor,
-          type: activeTab
+          type: activeTab,
+          mode: darkMode ? "dark" : "light"
         }, {
           headers: { 'Content-Type': 'application/json' }
         });
@@ -826,13 +1004,15 @@ function App() {
         setLoading(true);
         
         const response = await axios.post(`${backendUrl}/single-color/revert`, {
-          icon_name: selectedIcon
+          icon_name: selectedIcon,
+          mode: darkMode ? "dark" : "light"
         });
         
         if (response.data.status === "Reverted to original color") {
-          // Refresh the SVG to show the original color
-          const pngUrl = `${backendUrl}/single-color-files/${selectedIcon}.png?t=${Date.now()}`;
-          const svgUrl = `${backendUrl}/single-color-files/${selectedIcon}.svg?t=${Date.now()}`;
+          // Refresh the SVG to show the original color with mode-specific URLs
+          const modeSuffix = darkMode ? "-dark" : "-light";
+          const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${selectedIcon}.png?t=${Date.now()}`;
+          const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${selectedIcon}.svg?t=${Date.now()}`;
           
           fetch(svgUrl, { method: 'HEAD' })
             .then(response => {
@@ -864,12 +1044,12 @@ function App() {
       try {
         setLoading(true);
         
-        // Determine the original color based on group name
+        // Determine the original color based on group name and current mode
         let originalColor;
         if (selectedGroup.toLowerCase().includes("color")) {
           originalColor = "#00ABF6"; // Blue for Color group
         } else if (selectedGroup.toLowerCase().includes("grey")) {
-          originalColor = "#282828"; // Grey for Grey group
+          originalColor = darkMode ? "#D3D3D3" : "#282828"; // Light grey for dark mode, dark grey for light mode
         } else {
           originalColor = "#282828"; // Default grey for other groups
         }
@@ -892,11 +1072,12 @@ function App() {
           headers: { 'Content-Type': 'application/json' }
         });
         
-        // Update SVG URL with folder path
+        // Update SVG URL with folder path and mode
+        const modeSuffix = darkMode ? "-dark" : "-light";
         if (folderPath === "Root") {
-          setSvgUrl(`${backendUrl}/static/${selectedIcon}.svg?t=${Date.now()}`);
+          setSvgUrl(`${backendUrl}/static-icons${modeSuffix}/${selectedIcon}.svg?t=${Date.now()}`);
         } else {
-          setSvgUrl(`${backendUrl}/static-icons/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
+          setSvgUrl(`${backendUrl}/static-icons${modeSuffix}/${folderPath}/${selectedIcon}.svg?t=${Date.now()}`);
         }
         setCurrentColor(originalColor);
         setLocalPreviewColor(originalColor);
@@ -986,6 +1167,7 @@ function App() {
     setFlagType("rectangle");
     setGroupColors({}); // Reset group colors when switching tabs
     setCurrentFolder(null); // Reset current folder when switching tabs
+    setCurrentBcoreFolder(null); // Reset BCORE folder when switching tabs
     
     // Clear multi-select selections when switching tabs
     setSelectedIcons(new Set());
@@ -1034,6 +1216,13 @@ function App() {
     setSearchTerm(""); // Clear search when entering a folder
   };
 
+  const loadBcoreFromFolder = (folderName) => {
+    setCurrentBcoreFolder(folderName);
+    setBcoreContent(bcoreFolders[folderName] || []);
+    setSelectedBcoreItem(null);
+    setBcoreSearch(""); // Clear search when entering a folder
+  };
+
   const loadGroupsWithFolder = (itemName, folder) => {
     console.log('loadGroupsWithFolder called with:', itemName, folder);
     console.log('Current activeTab:', activeTab);
@@ -1073,11 +1262,12 @@ function App() {
           svgUrlToSet = `${backendUrl}/colorful-icons/${folderPath}/${itemName}.svg`;
         }
       } else {
-        // Use regular icons path
+        // Use regular icons path with mode-specific URLs
+        const modeSuffix = darkMode ? "-dark" : "-light";
         if (folderPath === "Root") {
-          svgUrlToSet = `${backendUrl}/static/${itemName}.svg`;
+          svgUrlToSet = `${backendUrl}/static-icons${modeSuffix}/${itemName}.svg`;
         } else {
-          svgUrlToSet = `${backendUrl}/static-icons/${folderPath}/${itemName}.svg`;
+          svgUrlToSet = `${backendUrl}/static-icons${modeSuffix}/${folderPath}/${itemName}.svg`;
         }
       }
       console.log('loadGroupsWithFolder setting SVG URL to:', svgUrlToSet);
@@ -1267,9 +1457,10 @@ function App() {
             setSelectedIcon(firstIcon);
             setSelectedGroup("entire_icon");
             
-            // Set the SVG URL for preview
-            const pngUrl = `${backendUrl}/single-color-files/${firstIcon}.png`;
-            const svgUrl = `${backendUrl}/single-color-files/${firstIcon}.svg`;
+            // Set the SVG URL for preview with mode-specific URLs
+            const modeSuffix = darkMode ? "-dark" : "-light";
+            const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${firstIcon}.png`;
+            const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${firstIcon}.svg`;
             
             fetch(svgUrl, { method: 'HEAD' })
               .then(response => {
@@ -1463,14 +1654,15 @@ function App() {
       for (const iconName of selectedIconList) {
         const folderPath = selectedIconsWithFolders.get(iconName) || "Root";
         
-        // Reset Grey group to original grey color (#282828)
+        // Reset Grey group to original grey color based on current mode
         promises.push(
           axios.post(`${backendUrl}/update_color`, {
             icon_name: iconName + ".svg",
             group_id: "Grey",
-            color: "#282828", // Original grey color
+            color: darkMode ? "#D3D3D3" : "#282828", // Light grey for dark mode, dark grey for light mode
             type: "icon",
-            folder: folderPath
+            folder: folderPath,
+            mode: darkMode ? "dark" : "light"
           })
         );
         
@@ -1481,7 +1673,8 @@ function App() {
             group_id: "Color",
             color: "#00ABF6", // Original blue color
             type: "icon",
-            folder: folderPath
+            folder: folderPath,
+            mode: darkMode ? "dark" : "light"
           })
         );
       }
@@ -1512,7 +1705,8 @@ function App() {
       // Reset all selected single color icons to original colors
       const promises = selectedIconList.map(iconName => {
         return axios.post(`${backendUrl}/single-color/revert`, {
-          icon_name: iconName + ".svg"
+          icon_name: iconName + ".svg",
+          mode: darkMode ? "dark" : "light"
         });
       });
       
@@ -1540,9 +1734,10 @@ function App() {
       
       setSelectedIcon(iconName);
       const folderPath = currentFolder || "Root";
+      const modeSuffix = darkMode ? "-dark" : "-light";
       const svgUrlToSet = folderPath === "Root" 
-        ? `${backendUrl}/static/${iconName}.svg`
-        : `${backendUrl}/static-icons/${folderPath}/${iconName}.svg`;
+        ? `${backendUrl}/static-icons${modeSuffix}/${iconName}.svg`
+        : `${backendUrl}/static-icons${modeSuffix}/${folderPath}/${iconName}.svg`;
       setSvgUrl(svgUrlToSet);
       
       // Only call loadGroups if it exists
@@ -1582,11 +1777,104 @@ function App() {
         setSelectedIcon(iconName);
         setSelectedGroup("entire_icon"); // Set a special group for single color icons
         
-        // Check for both PNG and SVG files
-        const pngUrl = `${backendUrl}/single-color-files/${iconName}.png`;
-        const svgUrl = `${backendUrl}/single-color-files/${iconName}.svg`;
+        // Set default color for single color icons based on current mode
+        const defaultColor = darkMode ? "#D3D3D3" : "#282828";
+        setCurrentColor(defaultColor);
+        setLocalPreviewColor(defaultColor);
         
-        // Try to load SVG first, fallback to PNG
+        // Apply the default color to the single color icon immediately
+        setLoading(true);
+        axios.post(`${backendUrl}/single-color/update`, {
+          icon_name: iconName,
+          color: defaultColor,
+          mode: darkMode ? "dark" : "light"
+        }, {
+          headers: { 'Content-Type': 'application/json' }
+        }).then(res => {
+          // Refresh the icon to show the new color with mode-specific URLs
+          const modeSuffix = darkMode ? "-dark" : "-light";
+          const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${iconName}.png`;
+          const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${iconName}.svg`;
+          
+          fetch(svgUrl, { method: 'HEAD' })
+            .then(response => {
+              if (response.ok) {
+                setSvgUrl(`${svgUrl}?t=${Date.now()}`);
+              } else {
+                setSvgUrl(`${pngUrl}?t=${Date.now()}`);
+              }
+            })
+            .catch(() => {
+              setSvgUrl(`${pngUrl}?t=${Date.now()}`);
+            });
+          
+          setLoading(false);
+        }).catch(err => {
+          console.error(err);
+          setLoading(false);
+          // Fallback to original loading if color update fails
+          const modeSuffix = darkMode ? "-dark" : "-light";
+          const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${iconName}.png`;
+          const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${iconName}.svg`;
+          
+          fetch(svgUrl, { method: 'HEAD' })
+            .then(response => {
+              if (response.ok) {
+                setSvgUrl(svgUrl);
+              } else {
+                setSvgUrl(pngUrl);
+              }
+            })
+            .catch(() => {
+              setSvgUrl(pngUrl);
+            });
+        });
+        return;
+      }
+      
+      setSelectedIcon(iconName);
+      setSelectedGroup("entire_icon"); // Set a special group for single color icons
+      
+      // Set default color for single color icons based on current mode
+      const defaultColor = darkMode ? "#D3D3D3" : "#282828";
+      setCurrentColor(defaultColor);
+      setLocalPreviewColor(defaultColor);
+      
+      // Apply the default color to the single color icon immediately
+      setLoading(true);
+      axios.post(`${backendUrl}/single-color/update`, {
+        icon_name: iconName,
+        color: defaultColor,
+        mode: darkMode ? "dark" : "light"
+      }, {
+        headers: { 'Content-Type': 'application/json' }
+      }).then(res => {
+        // Refresh the icon to show the new color with mode-specific URLs
+        const modeSuffix = darkMode ? "-dark" : "-light";
+        const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${iconName}.png`;
+        const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${iconName}.svg`;
+        
+        fetch(svgUrl, { method: 'HEAD' })
+          .then(response => {
+            if (response.ok) {
+              setSvgUrl(`${svgUrl}?t=${Date.now()}`);
+            } else {
+              setSvgUrl(`${pngUrl}?t=${Date.now()}`);
+            }
+          })
+          .catch(() => {
+            setSvgUrl(`${pngUrl}?t=${Date.now()}`);
+          });
+        
+        setLoading(false);
+      }).catch(err => {
+        console.error(err);
+        setLoading(false);
+        // Fallback to original loading if color update fails
+        const modeSuffix = darkMode ? "-dark" : "-light";
+        const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${iconName}.png`;
+        const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${iconName}.svg`;
+        
         fetch(svgUrl, { method: 'HEAD' })
           .then(response => {
             if (response.ok) {
@@ -1598,28 +1886,7 @@ function App() {
           .catch(() => {
             setSvgUrl(pngUrl);
           });
-        return;
-      }
-      
-      setSelectedIcon(iconName);
-      setSelectedGroup("entire_icon"); // Set a special group for single color icons
-      
-      // Check for both PNG and SVG files
-      const pngUrl = `${backendUrl}/single-color-files/${iconName}.png`;
-      const svgUrl = `${backendUrl}/single-color-files/${iconName}.svg`;
-      
-      // Try to load SVG first, fallback to PNG
-      fetch(svgUrl, { method: 'HEAD' })
-        .then(response => {
-          if (response.ok) {
-            setSvgUrl(svgUrl);
-          } else {
-            setSvgUrl(pngUrl);
-          }
-        })
-        .catch(() => {
-          setSvgUrl(pngUrl);
-        });
+      });
     } catch (error) {
       console.error('Error in handleSingleColorIconClick:', error);
     }
@@ -1662,9 +1929,10 @@ function App() {
     // Set the appropriate SVG URL based on the result type
     let svgUrlToSet;
     if (result.type === 'icon') {
+      const modeSuffix = darkMode ? "-dark" : "-light";
       svgUrlToSet = result.folder === "Root" 
-        ? `${backendUrl}/static/${result.name}.svg`
-        : `${backendUrl}/static-icons/${result.folder}/${result.name}.svg`;
+        ? `${backendUrl}/static-icons${modeSuffix}/${result.name}.svg`
+        : `${backendUrl}/static-icons${modeSuffix}/${result.folder}/${result.name}.svg`;
       loadGroups(result.name, result.folder);
     } else if (result.type === 'colorful-icon') {
       svgUrlToSet = result.folder === "Root" 
@@ -1704,7 +1972,8 @@ function App() {
       // Call the backend to get SVG content
       const requestData = {
         icon_name: iconName,
-        type: type
+        type: type,
+        mode: darkMode ? "dark" : "light"
       };
       
       if (type === "icon" || type === "colorful-icon") {
@@ -1770,7 +2039,8 @@ function App() {
       // Call the backend to get SVG content
       const requestData = {
         icon_name: iconName,
-        type: type
+        type: type,
+        mode: darkMode ? "dark" : "light"
       };
       
       if (type === "icon" || type === "colorful-icon") {
@@ -1863,7 +2133,7 @@ function App() {
         setShowFeedbackAdmin={setShowFeedbackAdmin}
       />
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 pb-16">
         {/* Header */}
         <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-10 rounded-sm shadow-lg max-w-6xl mx-auto mb-8`}>
           <div className="flex justify-between items-center">
@@ -1871,10 +2141,10 @@ function App() {
                 <img src={darkMode ? "/Icon Manager_dark.svg" : "/Icon Manager.svg"} alt="Icon Manager Logo" className="w-12 h-12 mr-2" />
                 <div>
                 <h1 className={`text-3xl font-bold header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  {currentPage === "icons" ? "Icon Manager" : "Infographics Manager"}
+                  {currentPage === "icons" ? "Icon Manager" : currentPage === "infographics" ? "Infographics Manager" : "BCORE Branding"}
                 </h1>
                 <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-400'}`}>
-                  {currentPage === "icons" ? "Manage and customize your icons" : "Browse and download infographics"}
+                  {currentPage === "icons" ? "Manage and customize your icons" : currentPage === "infographics" ? "Browse and download infographics" : "BCORE branding materials and assets"}
                 </p>
               </div>
             </div>
@@ -2112,9 +2382,10 @@ function App() {
                             ? `${backendUrl}/colorful-icons/${itemName}.svg?t=${Date.now()}`
                             : `${backendUrl}/colorful-icons/${itemFolder}/${itemName}.svg?t=${Date.now()}`;
                         } else {
+                          const modeSuffix = darkMode ? "-dark" : "-light";
                           iconUrl = itemFolder === "Root" 
-                            ? `${backendUrl}/static/${itemName}.svg?t=${Date.now()}`
-                            : `${backendUrl}/static-icons/${itemFolder}/${itemName}.svg?t=${Date.now()}`;
+                            ? `${backendUrl}/static-icons${modeSuffix}/${itemName}.svg?t=${Date.now()}`
+                            : `${backendUrl}/static-icons${modeSuffix}/${itemFolder}/${itemName}.svg?t=${Date.now()}`;
                         }
                         
                         return (
@@ -2234,14 +2505,15 @@ function App() {
                       {filteredItems.map(item => {
                         let iconUrl;
                         const folderPath = currentFolder || "Root";
+                        const modeSuffix = darkMode ? "-dark" : "-light";
                         if (activeTab === "colorful-icons") {
                           iconUrl = folderPath === "Root" 
                             ? `${backendUrl}/colorful-icons/${item}.svg?t=${Date.now()}`
                             : `${backendUrl}/colorful-icons/${folderPath}/${item}.svg?t=${Date.now()}`;
                         } else {
                           iconUrl = folderPath === "Root" 
-                            ? `${backendUrl}/static/${item}.svg?t=${Date.now()}`
-                            : `${backendUrl}/static-icons/${folderPath}/${item}.svg?t=${Date.now()}`;
+                            ? `${backendUrl}/static-icons${modeSuffix}/${item}.svg?t=${Date.now()}`
+                            : `${backendUrl}/static-icons${modeSuffix}/${folderPath}/${item}.svg?t=${Date.now()}`;
                         }
                         return (
                           <button
@@ -2354,9 +2626,10 @@ function App() {
                   ) : (
                     <div className="grid grid-cols-3 gap-3">
                       {filteredItems.map(item => {
-                        // Check for both PNG and SVG files
-                        const pngUrl = `${backendUrl}/single-color-files/${item}.png?t=${Date.now()}`;
-                        const svgUrl = `${backendUrl}/single-color-files/${item}.svg?t=${Date.now()}`;
+                        // Check for both PNG and SVG files with mode-specific URLs
+                        const modeSuffix = darkMode ? "-dark" : "-light";
+                        const pngUrl = `${backendUrl}/single-color-files${modeSuffix}/${item}.png?t=${Date.now()}`;
+                        const svgUrl = `${backendUrl}/single-color-files${modeSuffix}/${item}.svg?t=${Date.now()}`;
                         
                         return (
                           <button
@@ -2997,9 +3270,10 @@ function App() {
                             } else {
                               // Use stored folder information for regular icons
                               const storedFolder = selectedIconsWithFolders.get(itemName) || "Root";
+                              const modeSuffix = darkMode ? "-dark" : "-light";
                               iconUrl = storedFolder === "Root" 
-                                ? `${backendUrl}/static/${itemName}.svg?t=${Date.now()}`
-                                : `${backendUrl}/static-icons/${storedFolder}/${itemName}.svg?t=${Date.now()}`;
+                                ? `${backendUrl}/static-icons${modeSuffix}/${itemName}.svg?t=${Date.now()}`
+                                : `${backendUrl}/static-icons${modeSuffix}/${storedFolder}/${itemName}.svg?t=${Date.now()}`;
                             }
                             
                             return (
@@ -3009,6 +3283,7 @@ function App() {
                                     src={iconUrl}
                                     alt={itemName}
                                     className="max-w-full max-h-full object-contain"
+
                                     onError={(e) => {
                                       console.error('Failed to load icon:', itemName, e);
                                       e.target.style.display = 'none';
@@ -3034,6 +3309,7 @@ function App() {
                         src={svgUrl}
                         alt="Icon Preview"
                         className="max-w-full max-h-full object-contain"
+
                         onLoad={() => console.log('Image loaded successfully:', svgUrl)}
                         onError={(e) => console.error('Image failed to load:', svgUrl, e)}
                       />
@@ -3247,6 +3523,246 @@ function App() {
                 <div className="text-center">
                   <div className="text-lg mb-2">No Infographic Selected</div>
                   <div className="text-sm">Select an infographic from the list to preview</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* BCORE Branding Page Content */}
+        <div className={`flex gap-8 px-8 ${currentPage === "bcore-branding" ? "" : "hidden"}`}>
+          {/* Left Panel - BCORE Content List */}
+          <div className={`${darkMode ? 'bg-[#282828]' : 'bg-white'} p-4 shadow rounded-sm w-[400px] flex-shrink-0`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-xl font-semibold header-font ${darkMode ? 'text-white' : ''}`}>
+                BCORE Branding
+              </h3>
+              {currentBcoreFolder && (
+                <button
+                  onClick={() => {
+                    setCurrentBcoreFolder(null);
+                    setBcoreContent(Object.values(bcoreFolders).flat());
+                    setSelectedBcoreItem(null);
+                    setBcoreSearch("");
+                  }}
+                  className={`px-3 py-1 text-sm rounded-lg transition ${
+                    darkMode 
+                      ? 'bg-gray-600 text-white hover:bg-gray-500' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  ← Back to Folders
+                </button>
+              )}
+            </div>
+            
+            {/* Category Filter */}
+            <div className="mb-4">
+              <select
+                value={bcoreCategory}
+                onChange={e => {
+                  const selectedCategory = e.target.value;
+                  setBcoreCategory(selectedCategory);
+                  
+                  // If "All" is selected, go back to folder view
+                  if (selectedCategory === "All") {
+                    setCurrentBcoreFolder(null);
+                    setBcoreContent(Object.values(bcoreFolders).flat());
+                    setSelectedBcoreItem(null);
+                    setBcoreSearch("");
+                  } else {
+                    // Switch to the selected folder
+                    loadBcoreFromFolder(selectedCategory);
+                  }
+                }}
+                className={`w-full px-3 py-2 rounded-lg border transition-colors ${
+                  darkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              >
+                <option value="All">All Categories</option>
+                <option value="Images">Images</option>
+                <option value="Videos">Videos</option>
+                <option value="Logos">Logos</option>
+                <option value="Branding">Branding Materials</option>
+              </select>
+            </div>
+            
+            {/* Search Input */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search BCORE content..."
+                value={bcoreSearch}
+                onChange={(e) => setBcoreSearch(e.target.value)}
+                className={`w-full px-3 py-2 rounded-lg border transition-colors ${
+                  darkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none'
+                }`}
+              />
+            </div>
+            
+            {/* BCORE Content List */}
+            <div className="flex flex-col gap-3 max-h-[600px] overflow-y-auto">
+              {/* BCORE Folder View */}
+              {!currentBcoreFolder && !bcoreSearch && (
+                Object.keys(bcoreFolders).map(folderName => (
+                  <button
+                    key={folderName}
+                    className={`px-4 py-2 rounded-lg transition border text-left folder-font ${darkMode ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' : 'hover:bg-blue-100 text-gray-700 border-gray-500'}`}
+                    onClick={() => loadBcoreFromFolder(folderName)}>
+                    {folderName} ({bcoreFolders[folderName].length} items)
+                  </button>
+                ))
+              )}
+              
+              {/* BCORE Content Items */}
+              {currentBcoreFolder && (() => {
+                const filteredItems = bcoreContent
+                  .filter(item => item.name.toLowerCase().includes(bcoreSearch.toLowerCase()));
+                
+                // Show grid view for Images, Videos, and Logos folders, list view for others
+                if (currentBcoreFolder === 'Images' || currentBcoreFolder === 'Videos' || currentBcoreFolder === 'Logos') {
+                  return (
+                    <div className="grid grid-cols-2 gap-3">
+                      {filteredItems.map(item => (
+                        <button
+                          key={item.name}
+                          className={`flex flex-col items-center p-3 rounded-lg border transition w-full h-32 justify-center ${
+                            selectedBcoreItem && selectedBcoreItem.name === item.name 
+                              ? (darkMode ? 'bg-[#2E5583] text-white font-semibold border-[#2E5583]' : 'bg-blue-100 text-blue-800 font-semibold border-blue-600') 
+                              : (darkMode ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' : 'hover:bg-blue-100 text-gray-700 border-gray-500')
+                          }`}
+                          onClick={() => setSelectedBcoreItem(item)}
+                        >
+                          <img
+                            src={currentBcoreFolder === 'Videos' ? item.thumbnailPath : item.path}
+                            alt={item.name}
+                            className="max-w-full max-h-20 object-contain mb-2"
+                            onError={(e) => {
+                              console.error('Image loading error:', e);
+                              console.log('Image path:', currentBcoreFolder === 'Videos' ? item.thumbnailPath : item.path);
+                            }}
+                          />
+                          <div className="text-xs text-center truncate w-full">
+                            {item.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '')}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                } else {
+                  // List view for Videos and other folders
+                  return filteredItems.map(item => (
+                    <button
+                      key={item.name}
+                      className={`flex items-center gap-3 p-2 rounded-lg transition border text-left ${
+                        selectedBcoreItem && selectedBcoreItem.name === item.name 
+                          ? (darkMode ? 'bg-[#2E5583] text-white font-semibold border-[#2E5583]' : 'bg-blue-100 text-blue-800 font-semibold border-blue-600') 
+                          : (darkMode ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' : 'hover:bg-blue-100 text-gray-700 border-gray-500')
+                      }`}
+                      onClick={() => setSelectedBcoreItem(item)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {item.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '')}
+                        </div>
+                        <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                          {item.category}
+                        </div>
+                      </div>
+                    </button>
+                  ));
+                }
+              })()}
+              
+              {/* No content found message */}
+              {((currentBcoreFolder && bcoreContent.filter(item => 
+                               item.name.toLowerCase().includes(bcoreSearch.toLowerCase())).length === 0) ||
+                (!currentBcoreFolder && !bcoreSearch && Object.keys(bcoreFolders).length === 0)) && (
+                <div className={`p-4 rounded-lg border text-center ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-500'}`}>
+                  <div className="text-lg mb-2">🔍</div>
+                  <div className="text-sm">No content found</div>
+                  <div className="text-xs mt-1">Try adjusting your search or category filter</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel - BCORE Content Preview */}
+          <div className={`flex-1 ${darkMode ? 'bg-[#282828]' : 'bg-white'} p-6 shadow rounded-sm`}>
+            {selectedBcoreItem ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-xl font-semibold header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    {selectedBcoreItem.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '')}
+                  </h3>
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    selectedBcoreItem.category === 'Videos' ? 'bg-red-100 text-red-800' :
+                    selectedBcoreItem.category === 'Images' ? 'bg-blue-100 text-blue-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    {selectedBcoreItem.category}
+                  </span>
+                </div>
+                
+                <div className="flex justify-center">
+                  {selectedBcoreItem.type === 'video' ? (
+                    <div className="space-y-2">
+                      <video
+                        controls
+                        className="max-w-full max-h-96 rounded-lg shadow-lg"
+                        src={selectedBcoreItem.path}
+                        preload="metadata"
+                        onError={(e) => {
+                          console.error('Video loading error:', e);
+                          console.log('Video path:', selectedBcoreItem.path);
+                        }}
+                        onLoadStart={() => console.log('Video loading started:', selectedBcoreItem.path)}
+                        onCanPlay={() => console.log('Video can play:', selectedBcoreItem.path)}
+                      >
+                        Your browser does not support the video tag.
+                      </video>
+                      <div className={`text-xs text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Debug: {selectedBcoreItem.path}
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={selectedBcoreItem.path}
+                      alt={selectedBcoreItem.name}
+                      className="max-w-full max-h-96 rounded-lg shadow-lg object-contain"
+                      onError={(e) => {
+                        console.error('Image loading error:', e);
+                        console.log('Image path:', selectedBcoreItem.path);
+                      }}
+                    />
+                  )}
+                </div>
+                
+                <div className="flex justify-center">
+                  <a
+                    href={selectedBcoreItem.path}
+                    download={selectedBcoreItem.name}
+                    className={`px-6 py-3 rounded-lg transition flex items-center gap-2 ${
+                      darkMode 
+                        ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    <span className="font-medium">Download {selectedBcoreItem.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '')}</span>
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className={`flex items-center justify-center h-64 rounded-lg ${darkMode ? 'bg-transparent text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                <div className="text-center">
+                  <div className="text-lg mb-2">🎨</div>
+                  <div className="text-lg mb-2">BCORE Branding</div>
+                  <div className="text-sm">Select content from the list to preview</div>
+                  <div className="text-xs mt-2">Browse your BCORE branding materials</div>
                 </div>
               </div>
             )}
