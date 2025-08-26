@@ -2177,12 +2177,85 @@ function App() {
     }
   };
 
+  const exportBcoreLogoSvg = async () => {
+    try {
+      if (!selectedBcoreItem || selectedBcoreItem.type !== 'logo') {
+        toast.error("No logo selected for export");
+        return;
+      }
+
+      // Call the backend to get SVG content
+      const requestData = {
+        icon_name: selectedBcoreItem.name,
+        type: "bcore-logo",
+        mode: darkMode ? "dark" : "light"
+      };
+      
+      const response = await axios.post(`${backendUrl}/export-svg`, requestData);
+      
+      if (!response.data.svg_content) {
+        throw new Error('No SVG content received');
+      }
+      
+      // Create and download the SVG file
+      const svgBlob = new Blob([response.data.svg_content], { type: 'image/svg+xml' });
+      const url = window.URL.createObjectURL(svgBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = selectedBcoreItem.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("SVG downloaded successfully!");
+    } catch (error) {
+      console.error('Error downloading SVG:', error);
+      toast.error("Failed to download SVG");
+    }
+  };
+
+  const downloadBcoreFile = async () => {
+    try {
+      if (!selectedBcoreItem) {
+        toast.error("No item selected for download");
+        return;
+      }
+
+      // Use the new download endpoint
+      const response = await axios.post(`${backendUrl}/bcore-download`, {
+        filename: selectedBcoreItem.name
+      }, {
+        responseType: 'blob'
+      });
+
+      // Create and download the file
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = selectedBcoreItem.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("File downloaded successfully!");
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast.error("Failed to download file");
+    }
+  };
+
   const handleBcoreLogoCopyAsImage = async () => {
     try {
       if (!selectedBcoreItem || selectedBcoreItem.type !== 'logo') {
         toast.error("No logo selected for copy");
         return;
       }
+
+      console.log('Starting BCORE logo copy process...');
+      console.log('Selected item:', selectedBcoreItem);
 
       // Call the backend to get SVG content
       const requestData = {
@@ -2194,18 +2267,27 @@ function App() {
       console.log('Copying BCORE logo as image with request data:', requestData);
       
       const response = await axios.post(`${backendUrl}/export-svg`, requestData);
+      console.log('Backend response:', response.data);
       
       if (!response.data.svg_content) {
+        console.error('No SVG content in response:', response.data);
         throw new Error('No SVG content received');
       }
       
       const svgText = response.data.svg_content;
+      console.log('SVG content length:', svgText.length);
+      
       // Create an image from SVG
       const img = new window.Image();
       const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
       const urlObj = URL.createObjectURL(svgBlob);
+      
+      console.log('Created blob URL:', urlObj);
+      
       img.src = urlObj;
+      
       img.onload = async () => {
+        console.log('Image loaded successfully, dimensions:', img.width, 'x', img.height);
         try {
           // Create a canvas with the same size as the SVG image
           const canvas = document.createElement('canvas');
@@ -2214,24 +2296,70 @@ function App() {
           const ctx = canvas.getContext('2d');
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          console.log('Canvas created with dimensions:', canvas.width, 'x', canvas.height);
+          
           // Convert canvas to blob
           canvas.toBlob(async (blob) => {
             try {
-              if (!blob) throw new Error('Failed to create PNG blob');
-              await navigator.clipboard.write([
-                new window.ClipboardItem({ 'image/png': blob })
-              ]);
-              toast.success('Logo copied to clipboard!');
+              if (!blob) {
+                console.error('Failed to create PNG blob');
+                throw new Error('Failed to create PNG blob');
+              }
+              
+              console.log('Blob created successfully, size:', blob.size);
+              
+              // Check if clipboard API is available
+              if (navigator.clipboard && navigator.clipboard.write) {
+                console.log('Using modern clipboard API');
+                await navigator.clipboard.write([
+                  new window.ClipboardItem({ 'image/png': blob })
+                ]);
+                console.log('Successfully copied to clipboard using modern API');
+                toast.success('Logo copied to clipboard!');
+              } else {
+                console.log('Modern clipboard API not available, using fallback');
+                // Fallback: try to copy as data URL
+                const dataUrl = canvas.toDataURL('image/png');
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  await navigator.clipboard.writeText(dataUrl);
+                  console.log('Copied data URL to clipboard as fallback');
+                  toast.success('Logo copied to clipboard! (as data URL)');
+                } else {
+                  // Final fallback: copy SVG text
+                  fallbackCopyTextToClipboard(svgText);
+                  console.log('Copied SVG text to clipboard as final fallback');
+                  toast.success('SVG code copied to clipboard!');
+                }
+              }
             } catch (err) {
               console.error('Clipboard write failed:', err);
-              toast.error('Failed to copy logo');
+              
+              // Try fallback methods
+              try {
+                console.log('Trying fallback clipboard methods...');
+                const dataUrl = canvas.toDataURL('image/png');
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  await navigator.clipboard.writeText(dataUrl);
+                  toast.success('Logo copied to clipboard! (as data URL)');
+                } else {
+                  fallbackCopyTextToClipboard(svgText);
+                  toast.success('SVG code copied to clipboard!');
+                }
+              } catch (fallbackErr) {
+                console.error('All clipboard methods failed:', fallbackErr);
+                toast.error('Failed to copy logo. Please try downloading instead.');
+              }
             }
           }, 'image/png');
         } finally {
           URL.revokeObjectURL(urlObj);
+          console.log('Cleaned up blob URL');
         }
       };
+      
       img.onerror = (e) => {
+        console.error('Failed to load SVG image:', e);
         URL.revokeObjectURL(urlObj);
         toast.error('Failed to load SVG for logo copy');
       };
@@ -3900,6 +4028,16 @@ function App() {
                         <span className="font-medium">Export PNG</span>
                       </button>
                       <button
+                        onClick={exportBcoreLogoSvg}
+                        className={`px-4 py-3 rounded-lg transition flex items-center gap-2 ${
+                          darkMode 
+                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                      >
+                        <span className="font-medium">Export SVG</span>
+                      </button>
+                      <button
                         onClick={handleBcoreLogoCopyAsImage}
                         className={`px-4 py-3 rounded-lg transition flex items-center gap-2 ${
                           darkMode 
@@ -3911,9 +4049,8 @@ function App() {
                       </button>
                     </>
                   ) : (
-                    <a
-                      href={selectedBcoreItem.path}
-                      download={selectedBcoreItem.name}
+                    <button
+                      onClick={downloadBcoreFile}
                       className={`px-6 py-3 rounded-lg transition flex items-center gap-2 ${
                         darkMode 
                           ? 'bg-[#2E5583] text-white hover:bg-[#1a365d]' 
@@ -3921,7 +4058,7 @@ function App() {
                       }`}
                     >
                       <span className="font-medium">Download {selectedBcoreItem.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '')}</span>
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
