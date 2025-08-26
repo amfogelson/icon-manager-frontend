@@ -281,6 +281,14 @@ function App() {
       { name: 'ROAD TO WIRES copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/ROAD TO WIRES copy.png` },
       { name: 'TRACKING DOTS ON FACE copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/TRACKING DOTS ON FACE copy.png` },
       { name: 'WIRE TO ROAD copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/WIRE TO ROAD copy.png` },
+      // Branding Assets
+      { name: 'Bcore PPT Template New v1.pptx', type: 'template', category: 'Branding', path: `${backendUrl}/bcore/Bcore PPT Template New v1.pptx`, previewPath: `${backendUrl}/bcore/template_preview.PNG` },
+      { name: 'Employee LinkedIn cover v1.png', type: 'image', category: 'Branding', path: `${backendUrl}/bcore/Employee LinkedIn cover v1.png` },
+      { name: 'Employee LinkedIn cover v2.png', type: 'image', category: 'Branding', path: `${backendUrl}/bcore/Employee LinkedIn cover v2.png` },
+      { name: 'Employee LinkedIn cover v3.png', type: 'image', category: 'Branding', path: `${backendUrl}/bcore/Employee LinkedIn cover v3.png` },
+      { name: 'Employee LinkedIn cover v4.png', type: 'image', category: 'Branding', path: `${backendUrl}/bcore/Employee LinkedIn cover v4.png` },
+      { name: 'Employee LinkedIn cover v5.png', type: 'image', category: 'Branding', path: `${backendUrl}/bcore/Employee LinkedIn cover v5.png` },
+      { name: 'Employee LinkedIn cover v6.png', type: 'image', category: 'Branding', path: `${backendUrl}/bcore/Employee LinkedIn cover v6.png` },
     ];
     
     // Organize files by folders and add thumbnail paths for videos
@@ -290,31 +298,17 @@ function App() {
     }));
     const images = bcoreFiles.filter(item => item.category === 'Images');
     const logos = bcoreFiles.filter(item => item.category === 'Logos');
+    const branding = bcoreFiles.filter(item => item.category === 'Branding');
     
     const bcoreFoldersData = {
       'Videos': videos,
       'Images': images,
-      'Logos': logos
+      'Logos': logos,
+      'Branding': branding
     };
     
     setBcoreFolders(bcoreFoldersData);
     setBcoreContent(bcoreFiles);
-  }, []);
-  useEffect(() => {
-    fetch('/infographics/mapping.json')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setInfographics(data);
-        } else {
-          setInfographics([]);
-          console.error('mapping.json is not an array:', data);
-        }
-      })
-      .catch(err => {
-        console.error('Failed to load mapping.json:', err);
-        setInfographics([]);
-      });
   }, []);
 
   // Inject custom CSS for color picker dark mode
@@ -2247,6 +2241,69 @@ function App() {
     }
   };
 
+  const handleBcoreImageCopyAsImage = async () => {
+    try {
+      if (!selectedBcoreItem || selectedBcoreItem.type !== 'image') {
+        toast.error("No image selected for copy");
+        return;
+      }
+
+      console.log('Starting BCORE image copy process...');
+      console.log('Selected item:', selectedBcoreItem);
+
+      // Fetch the image as a blob
+      const response = await axios.get(selectedBcoreItem.path, {
+        responseType: 'blob'
+      });
+
+      console.log('Image fetched successfully, size:', response.data.size);
+
+      // Check if clipboard API is available
+      if (navigator.clipboard && navigator.clipboard.write) {
+        console.log('Using modern clipboard API');
+        await navigator.clipboard.write([
+          new window.ClipboardItem({ 'image/png': response.data })
+        ]);
+        console.log('Successfully copied to clipboard using modern API');
+        toast.success('Image copied to clipboard!');
+      } else {
+        console.log('Modern clipboard API not available, using fallback');
+        // Fallback: try to copy as data URL
+        const canvas = document.createElement('canvas');
+        const img = new window.Image();
+        const urlObj = URL.createObjectURL(response.data);
+        img.src = urlObj;
+        img.onload = () => {
+          try {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const dataUrl = canvas.toDataURL('image/png');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(dataUrl);
+              console.log('Copied data URL to clipboard as fallback');
+              toast.success('Image copied to clipboard! (as data URL)');
+            } else {
+              fallbackCopyTextToClipboard(dataUrl);
+              console.log('Copied data URL to clipboard as final fallback');
+              toast.success('Image data URL copied to clipboard!');
+            }
+          } finally {
+            URL.revokeObjectURL(urlObj);
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(urlObj);
+          toast.error('Failed to load image for copy');
+        };
+      }
+    } catch (error) {
+      console.error('Error copying image:', error);
+      toast.error('Failed to copy image');
+    }
+  };
+
   const handleBcoreLogoCopyAsImage = async () => {
     try {
       if (!selectedBcoreItem || selectedBcoreItem.type !== 'logo') {
@@ -3895,7 +3952,7 @@ function App() {
                 const filteredItems = bcoreContent
                   .filter(item => item.name.toLowerCase().includes(bcoreSearch.toLowerCase()));
                 
-                // Show grid view for Images, Videos, and Logos folders, list view for others
+                // Show grid view for Images, Videos, and Logos folders, horizontal view for Branding, list view for others
                 if (currentBcoreFolder === 'Images' || currentBcoreFolder === 'Videos' || currentBcoreFolder === 'Logos') {
                   return (
                     <div className="grid grid-cols-2 gap-3">
@@ -3910,16 +3967,55 @@ function App() {
                           onClick={() => setSelectedBcoreItem(item)}
                         >
                           <img
-                            src={currentBcoreFolder === 'Videos' ? item.thumbnailPath : item.path}
+                            src={currentBcoreFolder === 'Videos' ? item.thumbnailPath : 
+                                 item.type === 'template' && item.previewPath ? item.previewPath : item.path}
                             alt={item.name}
                             className="max-w-full max-h-20 object-contain mb-2"
                             onError={(e) => {
                               console.error('Image loading error:', e);
-                              console.log('Image path:', currentBcoreFolder === 'Videos' ? item.thumbnailPath : item.path);
+                              console.log('Image path:', currentBcoreFolder === 'Videos' ? item.thumbnailPath : 
+                                         item.type === 'template' && item.previewPath ? item.previewPath : item.path);
                             }}
                           />
                           <div className="text-xs text-center truncate w-full">
-                            {item.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '')}
+                            {item.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '').replace('.pptx', '').replace('.ppt', '')}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                } else if (currentBcoreFolder === 'Branding') {
+                  return (
+                    <div className="flex flex-col gap-4">
+                      {filteredItems.map(item => (
+                        <button
+                          key={item.name}
+                          className={`flex items-center gap-4 p-4 rounded-lg border transition w-full h-24 ${
+                            selectedBcoreItem && selectedBcoreItem.name === item.name 
+                              ? (darkMode ? 'bg-[#2E5583] text-white font-semibold border-[#2E5583]' : 'bg-blue-100 text-blue-800 font-semibold border-blue-600') 
+                              : (darkMode ? 'hover:bg-[#2E5583] text-white bg-[#4B5563] border-black' : 'hover:bg-blue-100 text-gray-700 border-gray-500')
+                          }`}
+                          onClick={() => setSelectedBcoreItem(item)}
+                        >
+                          <img
+                            src={item.type === 'template' && item.previewPath ? item.previewPath : item.path}
+                            alt={item.name}
+                            className="h-16 w-auto object-contain rounded"
+                            onError={(e) => {
+                              console.error('Image loading error:', e);
+                              console.log('Image path:', item.type === 'template' && item.previewPath ? item.previewPath : item.path);
+                            }}
+                          />
+                          <div className="flex-1 text-left">
+                            <div className="text-sm font-medium truncate">
+                              {item.name.includes('LinkedIn cover v') ? 
+                                item.name.match(/v\d+/)?.[0] || item.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '').replace('.pptx', '').replace('.ppt', '') :
+                                item.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '').replace('.pptx', '').replace('.ppt', '')
+                              }
+                            </div>
+                            <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
+                              {item.type === 'template' ? 'PowerPoint Template' : 'LinkedIn Cover'}
+                            </div>
                           </div>
                         </button>
                       ))}
@@ -3939,7 +4035,7 @@ function App() {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">
-                          {item.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '')}
+                          {item.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '').replace('.pptx', '').replace('.ppt', '')}
                         </div>
                         <div className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
                           {item.category}
@@ -3969,12 +4065,14 @@ function App() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className={`text-xl font-semibold header-font ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                    {selectedBcoreItem.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '')}
+                    {selectedBcoreItem.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '').replace('.pptx', '').replace('.ppt', '')}
                   </h3>
                   <span className={`px-2 py-1 rounded text-xs ${
                     selectedBcoreItem.category === 'Videos' ? 'bg-red-100 text-red-800' :
                     selectedBcoreItem.category === 'Images' ? 'bg-blue-100 text-blue-800' :
-                    'bg-green-100 text-green-800'
+                    selectedBcoreItem.category === 'Logos' ? 'bg-green-100 text-green-800' :
+                    selectedBcoreItem.category === 'Branding' ? 'bg-purple-100 text-purple-800' :
+                    'bg-gray-100 text-gray-800'
                   }`}>
                     {selectedBcoreItem.category}
                   </span>
@@ -3999,6 +4097,24 @@ function App() {
                       </video>
                       <div className={`text-xs text-center ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Debug: {selectedBcoreItem.path}
+                      </div>
+                    </div>
+                  ) : selectedBcoreItem.type === 'template' ? (
+                    <div className="space-y-4">
+                      <img
+                        src={selectedBcoreItem.previewPath || selectedBcoreItem.path}
+                        alt={selectedBcoreItem.name}
+                        className="max-w-full max-h-96 rounded-lg shadow-lg object-contain"
+                        onError={(e) => {
+                          console.error('Template preview loading error:', e);
+                          console.log('Preview path:', selectedBcoreItem.previewPath);
+                        }}
+                      />
+                      <div className={`text-center ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <div className="text-sm font-medium">PowerPoint Template</div>
+                        <div className="text-xs mt-1 opacity-75">
+                          Click download to get the template file
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -4048,6 +4164,29 @@ function App() {
                         <span className="font-medium">Copy to Clipboard</span>
                       </button>
                     </>
+                  ) : selectedBcoreItem.type === 'image' && selectedBcoreItem.category === 'Branding' ? (
+                    <>
+                      <button
+                        onClick={downloadBcoreFile}
+                        className={`px-4 py-3 rounded-lg transition flex items-center gap-2 ${
+                          darkMode 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-green-500 text-white hover:bg-green-600'
+                        }`}
+                      >
+                        <span className="font-medium">Download PNG</span>
+                      </button>
+                      <button
+                        onClick={handleBcoreImageCopyAsImage}
+                        className={`px-4 py-3 rounded-lg transition flex items-center gap-2 ${
+                          darkMode 
+                            ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                            : 'bg-purple-500 text-white hover:bg-purple-600'
+                        }`}
+                      >
+                        <span className="font-medium">Copy to Clipboard</span>
+                      </button>
+                    </>
                   ) : (
                     <button
                       onClick={downloadBcoreFile}
@@ -4057,7 +4196,7 @@ function App() {
                           : 'bg-blue-500 text-white hover:bg-blue-600'
                       }`}
                     >
-                      <span className="font-medium">Download {selectedBcoreItem.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '')}</span>
+                      <span className="font-medium">Download {selectedBcoreItem.name.replace(' copy.png', '').replace(' copy.jpg', '').replace(' copy.mp4', '').replace('.png', '').replace('.jpg', '').replace('.mp4', '').replace('.svg', '').replace('.pptx', '').replace('.ppt', '')}</span>
                     </button>
                   )}
                 </div>
@@ -4065,7 +4204,6 @@ function App() {
             ) : (
               <div className={`flex items-center justify-center h-64 rounded-lg ${darkMode ? 'bg-transparent text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                 <div className="text-center">
-                  <div className="text-lg mb-2">🎨</div>
                   <div className="text-lg mb-2">BCORE Branding</div>
                   <div className="text-sm">Select content from the list to preview</div>
                   <div className="text-xs mt-2">Browse your BCORE branding materials</div>
