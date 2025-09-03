@@ -253,6 +253,22 @@ function App() {
       { name: 'B_Target1.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Target1.svg` },
       { name: 'B_Slash.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Slash.svg` },
       { name: 'B_Signs.svg', type: 'logo', category: 'Logos', path: `${backendUrl}/bcore/B_Signs.svg` },
+      // New SVG Logos
+      { name: 'Bcore_White_Yellow_Main.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_White_Yellow_Main.svg' },
+      { name: 'Bcore_White_Target2.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_White_Target2.svg' },
+      { name: 'Bcore_Target2.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_Target2.svg' },
+      { name: 'B_Tag_Target4.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/B_Tag_Target4.svg' },
+      { name: 'B_Tag_Target3.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/B_Tag_Target3.svg' },
+      { name: 'B_Tag_Target2.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/B_Tag_Target2.svg' },
+      { name: 'B_Tag_Target.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/B_Tag_Target.svg' },
+      { name: 'B_Tag_Filled.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/B_Tag_Filled.svg' },
+      { name: 'B_Tag.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/B_Tag.svg' },
+      { name: 'Bcore_White_Main.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_White_Main.svg' },
+      { name: 'Bcore_White_Target.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_White_Target.svg' },
+      { name: 'Bcore_Target1.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_Target1.svg' },
+      { name: 'Bcore_Filled_O.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_Filled_O.svg' },
+      { name: 'Bcore_Yellow_Slash.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_Yellow_Slash.svg' },
+      { name: 'Bcore_Main.svg', type: 'logo', category: 'Logos', path: '/Bcore_Images_Video/Logos/Bcore_Main.svg' },
       // Images
       { name: 'B&W CAMERA LENS copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/B&W CAMERA LENS copy.png` },
       { name: 'B&W CONTROL ROOM copy.png', type: 'image', category: 'Images', path: `${backendUrl}/bcore/B&W CONTROL ROOM copy.png` },
@@ -2099,7 +2115,59 @@ function App() {
         return;
       }
 
-      // Call the backend to convert and download PNG
+      // Check if this is a frontend logo (starts with /Bcore_Images_Video/Logos/)
+      if (selectedBcoreItem.path.startsWith('/Bcore_Images_Video/Logos/')) {
+        // Frontend logo - fetch SVG and convert to PNG
+        try {
+          const response = await fetch(selectedBcoreItem.path);
+          const svgText = await response.text();
+          
+          // Create an image from SVG
+          const img = new window.Image();
+          const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+          const urlObj = URL.createObjectURL(svgBlob);
+          
+          img.src = urlObj;
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width || 512;
+              canvas.height = img.height || 512;
+              const ctx = canvas.getContext('2d');
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              
+              canvas.toBlob((blob) => {
+                if (blob) {
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = selectedBcoreItem.name.replace('.svg', '.png');
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                  toast.success("PNG downloaded successfully!");
+                } else {
+                  toast.error("Failed to create PNG");
+                }
+              }, 'image/png');
+            } finally {
+              URL.revokeObjectURL(urlObj);
+            }
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(urlObj);
+            toast.error("Failed to load SVG for conversion");
+          };
+        } catch (error) {
+          console.error('Error processing frontend logo:', error);
+          toast.error("Failed to process logo");
+        }
+        return;
+      }
+
+      // Backend logo - call the backend to convert and download PNG
       const requestData = {
         icon_name: selectedBcoreItem.name,
         type: "bcore-logo",
@@ -2178,7 +2246,33 @@ function App() {
         return;
       }
 
-      // Call the backend to get SVG content
+      // Check if this is a frontend logo (starts with /Bcore_Images_Video/Logos/)
+      if (selectedBcoreItem.path.startsWith('/Bcore_Images_Video/Logos/')) {
+        // Frontend logo - fetch SVG and download directly
+        try {
+          const response = await fetch(selectedBcoreItem.path);
+          const svgText = await response.text();
+          
+          // Create and download the SVG file
+          const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+          const url = window.URL.createObjectURL(svgBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = selectedBcoreItem.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          toast.success("SVG downloaded successfully!");
+        } catch (error) {
+          console.error('Error processing frontend logo:', error);
+          toast.error("Failed to process logo");
+        }
+        return;
+      }
+
+      // Backend logo - call the backend to get SVG content
       const requestData = {
         icon_name: selectedBcoreItem.name,
         type: "bcore-logo",
@@ -2314,7 +2408,107 @@ function App() {
       console.log('Starting BCORE logo copy process...');
       console.log('Selected item:', selectedBcoreItem);
 
-      // Call the backend to get SVG content
+      // Check if this is a frontend logo (starts with /Bcore_Images_Video/Logos/)
+      if (selectedBcoreItem.path.startsWith('/Bcore_Images_Video/Logos/')) {
+        // Frontend logo - fetch SVG and copy to clipboard
+        try {
+          const response = await fetch(selectedBcoreItem.path);
+          const svgText = await response.text();
+          console.log('Frontend SVG content length:', svgText.length);
+          
+          // Create an image from SVG
+          const img = new window.Image();
+          const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+          const urlObj = URL.createObjectURL(svgBlob);
+          
+          console.log('Created blob URL for frontend logo:', urlObj);
+          
+          img.src = urlObj;
+          
+          img.onload = async () => {
+            console.log('Frontend logo image loaded successfully, dimensions:', img.width, 'x', img.height);
+            try {
+              // Create a canvas with the same size as the SVG image
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width || 512;
+              canvas.height = img.height || 512;
+              const ctx = canvas.getContext('2d');
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              
+              console.log('Canvas created with dimensions:', canvas.width, 'x', canvas.height);
+              
+              // Convert canvas to blob
+              canvas.toBlob(async (blob) => {
+                try {
+                  if (!blob) {
+                    console.error('Failed to create PNG blob');
+                    throw new Error('Failed to create PNG blob');
+                  }
+                  
+                  console.log('Blob created successfully, size:', blob.size);
+                  
+                  // Check if clipboard API is available
+                  if (navigator.clipboard && navigator.clipboard.write) {
+                    console.log('Using modern clipboard API');
+                    await navigator.clipboard.write([
+                      new window.ClipboardItem({ 'image/png': blob })
+                    ]);
+                    console.log('Successfully copied frontend logo to clipboard using modern API');
+                    toast.success('Logo copied to clipboard!');
+                  } else {
+                    console.log('Modern clipboard API not available, using fallback');
+                    // Fallback: try to copy as data URL
+                    const dataUrl = canvas.toDataURL('image/png');
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                      await navigator.clipboard.writeText(dataUrl);
+                      console.log('Copied data URL to clipboard as fallback');
+                      toast.success('Logo copied to clipboard! (as data URL)');
+                    } else {
+                      // Final fallback: copy SVG text
+                      fallbackCopyTextToClipboard(svgText);
+                      console.log('Copied SVG text to clipboard as final fallback');
+                      toast.success('SVG code copied to clipboard!');
+                    }
+                  }
+                } catch (err) {
+                  console.error('Clipboard write failed:', err);
+                  
+                  // Try fallback methods
+                  try {
+                    console.log('Trying fallback clipboard methods...');
+                    const dataUrl = canvas.toDataURL('image/png');
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                      await navigator.clipboard.writeText(dataUrl);
+                      toast.success('Logo copied to clipboard! (as data URL)');
+                    } else {
+                      fallbackCopyTextToClipboard(svgText);
+                      toast.success('SVG code copied to clipboard!');
+                    }
+                  } catch (fallbackErr) {
+                    console.error('All clipboard methods failed:', fallbackErr);
+                    toast.error('Failed to copy logo. Please try downloading instead.');
+                  }
+                }
+              }, 'image/png');
+            } finally {
+              URL.revokeObjectURL(urlObj);
+            }
+          };
+          
+          img.onerror = (e) => {
+            console.error('Frontend logo image loading error:', e);
+            URL.revokeObjectURL(urlObj);
+            toast.error('Failed to load SVG for image copy');
+          };
+        } catch (error) {
+          console.error('Error processing frontend logo:', error);
+          toast.error('Failed to process frontend logo');
+        }
+        return;
+      }
+
+      // Backend logo - call the backend to get SVG content
       const requestData = {
         icon_name: selectedBcoreItem.name,
         type: "bcore-logo",
@@ -4116,6 +4310,19 @@ function App() {
                           Click download to get the template file
                         </div>
                       </div>
+                    </div>
+                  ) : selectedBcoreItem.type === 'logo' ? (
+                    <div className={`flex justify-center p-4 rounded-lg ${darkMode ? 'bg-[#3a3a3a]' : 'bg-gray-50'}`}>
+                      <img
+                        src={selectedBcoreItem.path}
+                        alt={selectedBcoreItem.name}
+                        className="w-64 h-48 rounded-lg shadow-lg"
+                        style={{ minWidth: '200px', minHeight: '150px' }}
+                        onError={(e) => {
+                          console.error('Logo loading error:', e);
+                          console.log('Logo path:', selectedBcoreItem.path);
+                        }}
+                      />
                     </div>
                   ) : (
                     <img
